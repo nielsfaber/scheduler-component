@@ -1,0 +1,59 @@
+turn_on:
+  description: Enable the scheduler rule to execute at the given time.
+  fields:
+    entity_id:
+      description: Identifier of the scheduler rule.
+      example: "scheduler.scheduler_1"
+
+turn_off:
+  description: Disable the scheduler rule (cancel the timer).
+  fields:
+    entity_id:
+      description: Identifier of the scheduler rule.
+      example: "scheduler.scheduler_1"
+
+test:
+  description: Perform direct execution of the scheduler rule, for testing the action.
+  fields:
+    entity_id:
+      description: Identifier of the scheduler rule.
+      example: "scheduler.scheduler_1"
+
+remove:
+  description: Remove a rule from scheduler
+  fields:
+    entity_id:
+      description: Identifier of the scheduler rule.
+      example: "scheduler.scheduler_1"
+
+add:
+  description: Add a rule to scheduler
+  fields:
+    time:
+      description: Time at which the action must be executed.
+      example: "'12:00'"
+    days:
+      description: (optional) List with specific days of the week (0=Sunday, 6=Saturday) on which the action must be executed (empty means all days).
+      example: "[0,1]"
+    entity:
+      description: Entity related to the service.
+      example: "light.my_lamp"
+    service:
+      description: Service that must be executed when the timer expires.
+      example: "turn_on"
+    service_data:
+      description: (optional) Extra arguments to pass to the service call.
+      example: "brightness: 200"
+
+edit:
+  description: Edit a rule in the scheduler
+  fields:
+    entity_id:
+      description: Identifier of the scheduler rule to be edited.
+      example: "scheduler.scheduler_1"
+    time:
+      description: (optional) Time at which the action must be executed.
+      example: "'12:00'"
+    days:
+      description: (optional) List with specific days of the week (0=Sunday, 6=Saturday) on which the action must be executed (empty means all days).
+      example: "[0,1]"
