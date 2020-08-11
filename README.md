@@ -8,7 +8,12 @@ A scheduler entity defines an action at a certain time, for example 'turn on my 
 Any entity in HA can be used for making a scheduler entity, together with any service that is available in HA.
 
 ## Installation
-Clone this repository into your home assistant configuration directory using `git clone https://github.com/nielsfaber/scheduler-component.git`, or download the source code as a zip file and add/merge the `custom_components/` folder with its contents in your configuration directory.
+Run this command from your HA config folder to automatically download and move the files:
+```
+curl https://raw.githubusercontent.com/nielsfaber/scheduler-component/master/install.sh | sh
+```
+
+Otherwise clone or download the source code as a zip file and add/merge the `custom_components/` folder with its contents in your configuration directory.
 
 
 ## Configuration
