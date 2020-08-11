@@ -4,14 +4,11 @@
 This is a custom component for Home Assistant, that is used for adding the `scheduler` domain.
 It works nicely together with the [Lovelace scheduler card](https://github.com/nielsfaber/scheduler-card).
 
-This component uses [MQTT](https://www.home-assistant.io/integrations/mqtt/) to communicate with an external application that is used for both storage of the entities and timekeeping.
-You can find this application at [scheduler-app](https://github.com/nielsfaber/scheduler-app).
-
 A scheduler entity defines an action at a certain time, for example 'turn on my lamp at 21:00 every day'.
 Any entity in HA can be used for making a scheduler entity, together with any service that is available in HA.
 
 ## Installation
-Clone this repository into your home assistant configuration directory using `git clone https://github.com/nielsfaber/scheduler-card.git`, or download the source code as a zip file and add/merge the `custom_components/` folder with its contents in your configuration directory.
+Clone this repository into your home assistant configuration directory using `git clone https://github.com/nielsfaber/scheduler-component.git`, or download the source code as a zip file and add/merge the `custom_components/` folder with its contents in your configuration directory.
 
 
 ## Configuration
