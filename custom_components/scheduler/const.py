@@ -10,7 +10,8 @@ from homeassistant.const import (
 DOMAIN = 'scheduler'
 ENTITY_ID_FORMAT = DOMAIN + '.{}'
 
-
+# STORAGE_KEY = DOMAIN
+# STORAGE_VERSION = 1
 
 SERVICE_TURN_ON = 'turn_on'
 SERVICE_TURN_OFF = 'turn_off'
@@ -39,37 +40,12 @@ SCHEMA_ADD = vol.Schema({
 })
 
 
-MQTT_DISCOVERY_RESPONSE_TOPIC = 'scheduler/+'
-MQTT_DISCOVERY_REQUEST_TOPIC = 'scheduler/connect'
-MQTT_AVAILABILITY_TOPIC = 'scheduler/status'
-MQTT_ADD_TOPIC = 'scheduler/add'
-MQTT_SUNRISE_TOPIC = 'scheduler/sunrise'
-MQTT_SUNSET_TOPIC = 'scheduler/sunset'
+MQTT_DISCOVERY_TOPIC = 'scheduler/+'
 
-def MQTT_TURN_ON_TOPIC(id):
-     return 'scheduler/%s/turn_on' % id
 
-def MQTT_TURN_OFF_TOPIC(id):
-     return 'scheduler/%s/turn_off' % id
+def MQTT_STORAGE_TOPIC(id):
+     return 'scheduler/%s' % id
 
-def MQTT_REMOVE_TOPIC(id):
-     return 'scheduler/%s/remove' % id
-
-def MQTT_EDIT_TOPIC(id):
-     return 'scheduler/%s/edit' % id
-
-def MQTT_INITIALIZATION_REQUEST_TOPIC(id):
-     return 'scheduler/%s/discover' % id
-
-def MQTT_INITIALIZATION_RESPONSE_TOPIC(id):
-     return 'scheduler/%s/+' % id
-
-MQTT_DISCOVERY_REQUEST_PAYLOAD = True
-MQTT_AVAILABILITY_PAYLOAD = 'online'
-MQTT_INITIALIZATION_REQUEST_PAYLOAD = True
-MQTT_TURN_ON_PAYLOAD = True
-MQTT_TURN_OFF_PAYLOAD = True
-MQTT_REMOVE_PAYLOAD = True
 
 
 STATE_INITIALIZING = 'initializing'
@@ -78,24 +54,14 @@ STATE_TRIGGERED = 'triggered'
 STATE_DISABLED = 'off'
 STATE_INVALID = 'invalid'
 
-INITIAL_ENTITY_PROPERTIES = {
-    "time": None,
-    "days": None,
-    "entity": None,
-    "service": None,
-    "enabled": False,
-    "triggered": False,
-}
 
-LISTENING_ENTITY_PROPERTIES = [
+STORED_ENTITY_PROPERTIES = [
     "time",
     "days",
     "entity",
     "service",
     "service_data",
     "enabled",
-    "next_trigger",
-    "triggered",
 ]
 
 EXPOSED_ENTITY_PROPERTIES = [
@@ -108,5 +74,3 @@ EXPOSED_ENTITY_PROPERTIES = [
 ]
 
 SUN_ENTITY = "sun.sun"
-MQTT_SUNRISE_TOPIC = "scheduler/sunrise"
-MQTT_SUNSET_TOPIC = "scheduler/sunset"

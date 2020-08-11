@@ -1,6 +1,7 @@
 import logging
 import voluptuous as vol
 import json
+import datetime
 from homeassistant.helpers.json import JSONEncoder
 from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.helpers.entity import (
@@ -8,7 +9,6 @@ from homeassistant.helpers.entity import (
     Entity
 )
 from homeassistant.util import convert, dt as dt_util, location as loc_util
-from datetime import datetime
 from homeassistant.helpers import (
     config_validation as cv,
     service,
@@ -17,27 +17,31 @@ from homeassistant.const import (
     ATTR_ENTITY_ID
 )
 from homeassistant.helpers.event import async_track_state_change
+from homeassistant.components.timer import (
+    TimerStorageCollection
+)
+from homeassistant.helpers import collection
+from homeassistant.helpers.storage import Store
+from homeassistant.helpers.event import async_track_point_in_utc_time
+import homeassistant.util.dt as dt_util
 
 from .const import (
     DOMAIN, 
     STATE_INITIALIZING, STATE_WAITING, STATE_TRIGGERED, STATE_DISABLED, STATE_INVALID,
     SERVICE_TURN_ON, SERVICE_TURN_OFF, SERVICE_TEST, SERVICE_REMOVE, SERVICE_EDIT, SERVICE_ADD,
     SCHEMA_ENTITY, SCHEMA_EDIT, SCHEMA_ADD,
-    MQTT_DISCOVERY_RESPONSE_TOPIC, MQTT_DISCOVERY_REQUEST_TOPIC, MQTT_DISCOVERY_REQUEST_PAYLOAD,
-    MQTT_AVAILABILITY_TOPIC, MQTT_AVAILABILITY_PAYLOAD,
-    MQTT_INITIALIZATION_REQUEST_TOPIC, MQTT_INITIALIZATION_REQUEST_PAYLOAD, MQTT_INITIALIZATION_RESPONSE_TOPIC,
-    MQTT_TURN_ON_TOPIC, MQTT_TURN_ON_PAYLOAD,
-    MQTT_TURN_OFF_TOPIC, MQTT_TURN_OFF_PAYLOAD,
-    MQTT_REMOVE_TOPIC, MQTT_REMOVE_PAYLOAD,
-    MQTT_ADD_TOPIC, MQTT_EDIT_TOPIC,
-    INITIAL_ENTITY_PROPERTIES, EXPOSED_ENTITY_PROPERTIES, LISTENING_ENTITY_PROPERTIES,
-    SUN_ENTITY, MQTT_SUNRISE_TOPIC, MQTT_SUNSET_TOPIC,
+    MQTT_DISCOVERY_TOPIC, MQTT_STORAGE_TOPIC,
+    EXPOSED_ENTITY_PROPERTIES, STORED_ENTITY_PROPERTIES,
+    SUN_ENTITY, 
+    #STORAGE_KEY, STORAGE_VERSION,
 )
 
 from .helpers import (
     get_id_from_topic,
     entity_exists_in_hass,
     service_exists_in_hass,
+    parse_sun_time_string,
+    time_has_sun,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,25 +54,43 @@ async def async_setup(hass, config):
     component = EntityComponent(_LOGGER, DOMAIN, hass)
     _LOGGER.debug("setting up scheduler component")
 
+    # # set up storage for timers
+    # _LOGGER.debug("setting up storage")
+    # id_manager = collection.IDManager()
+    # storage_collection = TimerStorageCollection(
+    #     Store(hass, STORAGE_VERSION, STORAGE_KEY),
+    #     logging.getLogger(f"{__name__}.storage_collection"),
+    #     id_manager,
+    # )
+    # collection.attach_entity_component_collection(component, storage_collection, SchedulerEntity)
+    # await storage_collection.async_load()
+    # collection.attach_entity_registry_cleaner(hass, DOMAIN, DOMAIN, storage_collection)
+    # _LOGGER.debug("done setting up storage")
+
+
     async def async_handle_discovery(msg):
         entity_id = get_id_from_topic(msg.topic)
 
         if entity_id is None:
             return
-        elif entity_exists_in_hass(hass, entity_id):
+        elif entity_exists_in_hass(hass, ENTITY_ID_FORMAT.format(entity_id)):
+            return
+        elif msg.payload is None:
             return
         
-        _LOGGER.debug("discovered entitity %s" % entity_id)
+        _LOGGER.debug("discovered entity %s" % entity_id)
+        data = json.loads(msg.payload)
+
         await component.async_add_entities([
-            SchedulerRule(
+            SchedulerEntity(
                 hass,
-                entity_id
+                entity_id,
+                data
             )
         ])
 
-    await mqtt.async_subscribe(MQTT_DISCOVERY_RESPONSE_TOPIC, async_handle_discovery)
-    mqtt.publish(MQTT_DISCOVERY_REQUEST_TOPIC, MQTT_DISCOVERY_REQUEST_PAYLOAD)
-
+    _LOGGER.debug("subscribing to %s" % MQTT_DISCOVERY_TOPIC)
+    await mqtt.async_subscribe(MQTT_DISCOVERY_TOPIC, async_handle_discovery)
 
     component.async_register_entity_service(
         SERVICE_TURN_ON,
@@ -85,7 +107,7 @@ async def async_setup(hass, config):
     component.async_register_entity_service(
         SERVICE_TEST,
         SCHEMA_ENTITY,
-        'async_service_test'
+        'async_execute_command'
     )
 
     component.async_register_entity_service(
@@ -103,7 +125,20 @@ async def async_setup(hass, config):
     async def async_service_add(data):
         # TODO: add validation
         output = dict(data.data)
-        mqtt.publish(MQTT_ADD_TOPIC, json.dumps(output))
+        output['enabled'] = True
+
+        num = 1
+        while(entity_exists_in_hass(hass, ENTITY_ID_FORMAT.format('schedule_%i' % num))):
+            num = num+1
+
+        await component.async_add_entities([
+            SchedulerEntity(
+                hass,
+                'schedule_%i' % num,
+                output,
+                True
+            )
+        ])
     
     service.async_register_admin_service(
         hass,
@@ -113,47 +148,20 @@ async def async_setup(hass, config):
         SCHEMA_ADD
     )
 
-    async def update_sun(sun_entity, old_state, new_state):
-        _LOGGER.debug("The sun entity has changed")
-        next_rising = new_state.attributes["next_rising"]
-        next_setting = new_state.attributes["next_setting"]
-        
-        mqtt.publish(MQTT_SUNRISE_TOPIC, next_rising, None, True)
-        mqtt.publish(MQTT_SUNSET_TOPIC, next_setting, None, True)
-
-
-    if entity_exists_in_hass(hass, SUN_ENTITY):
-
-        async_track_state_change(
-            hass,
-            SUN_ENTITY,
-            update_sun
-        )
-
-        # state = hass.states.get(SUN_ENTITY)
-        # next_rising = state.attributes["next_rising"]
-        # next_setting = state.attributes["next_setting"]
-        
-        # mqtt.publish(MQTT_SUNRISE_TOPIC, next_rising)
-        # mqtt.publish(MQTT_SUNSET_TOPIC, next_setting)
-        
-
-
-
-
     return True
 
 
-class SchedulerRule(ToggleEntity):
-    def __init__(self, hass, id):
+class SchedulerEntity(ToggleEntity):
+    def __init__(self, hass, id, data, is_new_entity = False):
         self.entity_id = ENTITY_ID_FORMAT.format(id)
         self.id = id
-        self._properties = INITIAL_ENTITY_PROPERTIES.copy()
+        self._properties = data
         self.hass = hass
-        self._available = None
-        self._initialized = False
-        self._valid = False
-        self.relative_time = None
+        self._state = STATE_INITIALIZING
+        self._timer = None
+
+        if is_new_entity:        
+            self.store_entity_state()
 
     @property
     def should_poll(self):
@@ -169,47 +177,31 @@ class SchedulerRule(ToggleEntity):
 
     @property
     def state(self):
-        if not self._initialized:
-            return STATE_INITIALIZING
-        elif not self._valid:
-            return STATE_INVALID
-        elif self._properties['enabled'] != 'true':
-            return STATE_DISABLED
-        elif self._properties['triggered'] == 'true':
-            return STATE_TRIGGERED
-        else:
-            return STATE_WAITING
-        # elif self.relative_time is not None:
-        #     return "waiting (%s)" % self.relative_time
-
-    @property
-    def available(self):
-        return (self._available == True)
+        return self._state
 
     @property
     def is_on(self):
         """Return true if entity is on."""
-        return (self._properties['enabled'] == 'true')
+        return self._properties['enabled']
 
     @property
     def state_attributes(self):
         attributes = {}
         for key,value in self._properties.items():
             if key in EXPOSED_ENTITY_PROPERTIES and value is not None:
-                attributes[key] = value
+                if key == 'days':
+                    attributes[key] = json.dumps(value)
+                else:
+                    attributes[key] = value
         
         return attributes
 
-    def request_configuration(self):
-        _LOGGER.debug("Requesting configuration for entity %s" % self.id)
-        self.hass.components.mqtt.publish(MQTT_INITIALIZATION_REQUEST_TOPIC(self.id), MQTT_INITIALIZATION_REQUEST_PAYLOAD)
-        # TODO clean up old entities
-
     def get_service_call(self):
-        if not self._initialized:
+        if not self._properties["service"]:
             return None
         command = { }
 
+        # if service has no domain provided, assume the service is intended for the entity
         if "." in self._properties["service"]:
             command["service"] = self._properties["service"]
         else:
@@ -232,113 +224,192 @@ class SchedulerRule(ToggleEntity):
             for key, value in self._properties.items():
                 if value is None:
                     init = False
-            
-            self._initialized = init
 
             if init:
                 valid = None
                 service_call = self.get_service_call()
-                _LOGGER.debug(service_call)
+
                 if not service_exists_in_hass(self.hass, service_call['service']):
-                    valid = False
+                    self._state = STATE_INVALID
                 elif 'entity_id' in service_call and not entity_exists_in_hass(self.hass, service_call['entity_id']):
-                    valid = False
+                    self._state = STATE_INVALID
+                elif time_has_sun(self._properties['time']) and not entity_exists_in_hass(self.hass, SUN_ENTITY):
+                    self._state = STATE_INVALID
                 else: 
-                    valid = True
-                self._valid = valid
+                    return True
+            
+            return False
         
     async def async_execute_command(self):
         service_call = self.get_service_call()
+        _LOGGER.debug("executing service %s" % service_call["service"])
         await service.async_call_from_config(
             self.hass,
             service_call,
         )
-        _LOGGER.debug("executed service %s" % service_call["service"])
-
-
-    async def async_handle_availability(self, msg):
-        available = (msg.payload == MQTT_AVAILABILITY_PAYLOAD)
-
-        if available is not self._available:
-            if not available:
-                self._properties = INITIAL_ENTITY_PROPERTIES.copy()
-                self.validate_configuration()
-            elif self._available == False:
-                self.request_configuration()
-
-            self._available = available
-            await self.async_update_ha_state()
-
-    async def handle_input_data(self, msg):
-        parts = msg.topic.split('/')
-        key = parts[-1]
-
-        if key in LISTENING_ENTITY_PROPERTIES:
-            self._properties[key] = msg.payload
-            self.validate_configuration()
-
-            # if key == 'next_trigger':
-            #     ts = datetime.strptime(self._properties['next_trigger'], "%Y-%m-%dT%H:%M:%S.%fZ")
-            #     now = datetime.utcnow()
-
-            #     if not ts.tzinfo:
-            #         ts = dt_util.as_local(ts)
-                
-            #     if not now.tzinfo:
-            #         now = dt_util.as_local(now)
-                
-            #     time_from_now = ts-now
-            #     ts_inverted = now - time_from_now
-            #     self.relative_time = dt_util.get_age(ts_inverted)
-
-            if key == 'triggered':
-                if self._properties['triggered'] == 'true':
-                    _LOGGER.debug("triggered entity %s" % self.id)
-                    await self.async_execute_command()
-
-
-            await self.async_update_ha_state()
-        elif key == 'removed':
-            _LOGGER.debug("removing entity %s" % self.id)
-            await self.async_remove()
-
-           
 
     async def async_turn_on(self):
-        self.hass.components.mqtt.publish(MQTT_TURN_ON_TOPIC(self.id), MQTT_TURN_ON_PAYLOAD)
+        if self._properties['enabled'] == True:
+            return
+        self._properties['enabled'] = True
+        self.store_entity_state()
+        await self.async_start_timer()
 
     async def async_turn_off(self):
-        self.hass.components.mqtt.publish(MQTT_TURN_OFF_TOPIC(self.id), MQTT_TURN_OFF_PAYLOAD)
+        if self._properties['enabled'] == False:
+            return
+        self._properties['enabled'] = False
+
+        self._state = STATE_DISABLED
+        if self._timer:
+            self._timer()
+            self._timer = None
+            self._properties['next_trigger'] = None
+        
+        self.store_entity_state()
+        await self.async_update_ha_state()
     
     async def async_service_remove(self):
-        self.hass.components.mqtt.publish(MQTT_REMOVE_TOPIC(self.id), MQTT_REMOVE_PAYLOAD)
+        _LOGGER.debug("removing entity %s" % self.id)
 
-    async def async_service_test(self):
-            _LOGGER.debug("testing entity %s" % self.id)
-            await self.async_execute_command()
+        self._state = STATE_DISABLED
+        if self._timer:
+            self._timer()
+            self._timer = None
+            self._properties['next_trigger'] = None
+        
+        await self.async_remove()
+        self.hass.components.mqtt.publish(MQTT_STORAGE_TOPIC(self.id), None, None, True)
+        return
 
     async def async_service_edit(self, time=None, days=None):
         if time is not None or days is not None:
             message = { }
             if time is not None:
-                message['time'] = time
+                self._properties['time'] = time
             if days is not None:
-                message['days'] = days
+                self._properties['days'] = days
             
-            self.hass.components.mqtt.publish(MQTT_EDIT_TOPIC(self.id), json.dumps(message))
+            self.store_entity_state()
+
+            await self.async_start_timer()
 
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
 
-        await self.hass.components.mqtt.async_subscribe(MQTT_AVAILABILITY_TOPIC, self.async_handle_availability)
-        await self.hass.components.mqtt.async_subscribe(MQTT_INITIALIZATION_RESPONSE_TOPIC(self.id), self.handle_input_data)
-        self.request_configuration()
+        if self.validate_configuration() is True:
+            if self._properties['enabled'] is True:
+                await self.async_start_timer()
+            else:
+                self._state = STATE_DISABLED
+    
+            # if time_has_sun(self._properties['time']):
+            #     #homeassistant.helpers.event.async_track_state_change
+            #     #homeassistant.helpers.event.async_track_sunrise
 
     async def async_will_remove_from_hass(self):
         _LOGGER.debug("async_will_remove_from_hass")
     
+    def store_entity_state(self):
+        output = {}
+        for key,value in self._properties.items():
+            if key in STORED_ENTITY_PROPERTIES and value is not None:
+                output[key] = value
+        
+        output = json.dumps(output)
+        self.hass.components.mqtt.publish(MQTT_STORAGE_TOPIC(self.id), output, None, True)
+
+    async def async_start_timer(self):
+        self._state = STATE_INITIALIZING
+        if self._timer:
+            self._timer()
+            self._timer = None
+        
+        time_string = self._properties["time"]
+
+        if time_has_sun(time_string):
+            
+            sunrise_sunset, sign, offset_string = parse_sun_time_string(time_string)
+            sun_state = self.hass.states.get(SUN_ENTITY)
+            if sunrise_sunset == 'sunrise':
+                time_sun = sun_state.attributes["next_rising"]
+            else:
+                time_sun = sun_state.attributes["next_setting"]
+
+            time_sun = datetime.datetime.strptime(time_sun[:len(time_sun)-3] + time_sun[len(time_sun)-2:], '%Y-%m-%dT%H:%M:%S%z')
+            #_LOGGER.debug("%s is at: %s" % (sunrise_sunset, dt_util.as_local(time_sun)))
+
+            time_offset = datetime.datetime.strptime(offset_string, '%H:%M')
+            time_offset = datetime.timedelta(hours=time_offset.hour, minutes=time_offset.minute)
+
+            if sign == '+':
+                next = time_sun + time_offset
+            else:
+                next = time_sun - time_offset
+        else:
+            time = dt_util.parse_time(time_string)
+            today = dt_util.start_of_local_day()
+            next = dt_util.as_utc(datetime.datetime.combine(today, time))
+
+
+        # check if time has already passed for today
+        now = dt_util.now().replace(microsecond=0)
+        delta = next - now
+        while delta.total_seconds() < 0:
+            next = next + datetime.timedelta(days=1)
+            delta = next - now
+
+        # check if timer is restricted in days of the week
+        allowed_weekdays = self._properties["days"]
+        if len(allowed_weekdays) > 0:
+            weekday = (dt_util.as_local(next).weekday() + 1) % 7 # convert to Sunday=0, Saturday=6
+            while weekday not in allowed_weekdays:
+                next = next + datetime.timedelta(days=1)
+                weekday = (dt_util.as_local(next).weekday() + 1) % 7
+
+        next_localized = dt_util.as_local(next)
+
+        self._properties['next_trigger'] = next_localized.isoformat()
+        self._state = STATE_WAITING
+        
+        self._timer = async_track_point_in_utc_time(
+            self.hass, self.async_timer_finished, next
+        )
+
+        _LOGGER.debug("timer for %s triggers in %s" % (self.entity_id, (next-now)))
+        await self.async_update_ha_state()
 
 
 
+    async def async_timer_finished(self, time):
+        self._timer = None
 
+        if self._state != STATE_WAITING:
+            return
+
+        _LOGGER.debug("timer for %s is triggered" % self.entity_id)
+
+        self._state = STATE_TRIGGERED
+        self._properties['next_trigger'] = None
+        await self.async_update_ha_state()
+
+        # execute the action
+        await self.async_execute_command()
+
+        # wait 1 minute before restarting
+        now = dt_util.now().replace(microsecond=0)
+        next = now + timedelta(minutes=1)
+        
+        self._timer = async_track_point_in_utc_time(
+            self.hass, self.async_cooldown_timer_finished, next
+        )
+
+    async def async_cooldown_timer_finished(self, time):
+        _LOGGER.debug("async_cooldown_timer_finished")
+        self._timer = None
+
+        if self._state != STATE_TRIGGERED:
+            return
+
+        await self.async_start_timer()
