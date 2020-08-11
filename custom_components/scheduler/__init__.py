@@ -209,7 +209,7 @@ class SchedulerEntity(ToggleEntity):
             command["entity_id"] = self._properties["entity"]
         
         if "service_data" in self._properties:
-            service_data = json.loads(self._properties["service_data"])
+            service_data = self._properties["service_data"]
             if "entity_id" in service_data:
                 command["entity_id"] = service_data["entity_id"]
                 del service_data["entity_id"]
