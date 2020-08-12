@@ -209,7 +209,7 @@ class SchedulerEntity(ToggleEntity):
             command["entity_id"] = self._properties["entity"]
         
         if "service_data" in self._properties:
-            service_data = json.loads(self._properties["service_data"])
+            service_data = self._properties["service_data"]
             if "entity_id" in service_data:
                 command["entity_id"] = service_data["entity_id"]
                 del service_data["entity_id"]
@@ -229,14 +229,18 @@ class SchedulerEntity(ToggleEntity):
                 valid = None
                 service_call = self.get_service_call()
 
-                if not service_exists_in_hass(self.hass, service_call['service']):
-                    self._state = STATE_INVALID
-                elif 'entity_id' in service_call and not entity_exists_in_hass(self.hass, service_call['entity_id']):
-                    self._state = STATE_INVALID
-                elif time_has_sun(self._properties['time']) and not entity_exists_in_hass(self.hass, SUN_ENTITY):
-                    self._state = STATE_INVALID
-                else: 
-                    return True
+                return True
+
+                # temporary bypass of validation --> at startup the services and entities may not been loaded yet, this requires a different approach!
+                #
+                # if not service_exists_in_hass(self.hass, service_call['service']):
+                #     self._state = STATE_INVALID
+                # elif 'entity_id' in service_call and not entity_exists_in_hass(self.hass, service_call['entity_id']):
+                #     self._state = STATE_INVALID
+                # elif time_has_sun(self._properties['time']) and not entity_exists_in_hass(self.hass, SUN_ENTITY):
+                #     self._state = STATE_INVALID
+                # else: 
+                #     return True
             
             return False
         
