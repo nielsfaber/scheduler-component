@@ -38,7 +38,7 @@ from .const import (
     MQTT_STORAGE_TOPIC,
     EXPOSED_ENTITY_PROPERTIES,
     STORED_ENTITY_PROPERTIES,
-    SUN_ENTITY
+    SUN_ENTITY,
 )
 
 from .helpers import (
@@ -59,7 +59,6 @@ async def async_setup(hass, config):
     mqtt = hass.components.mqtt
     component = EntityComponent(_LOGGER, DOMAIN, hass)
     _LOGGER.debug("setting up scheduler component")
-
 
     async def async_handle_discovery(msg):
         entity_id = get_id_from_topic(msg.topic)
@@ -276,7 +275,6 @@ class SchedulerEntity(ToggleEntity):
             else:
                 self._state = STATE_DISABLED
 
-
     async def async_will_remove_from_hass(self):
         _LOGGER.debug("async_will_remove_from_hass")
 
@@ -337,9 +335,7 @@ class SchedulerEntity(ToggleEntity):
         # check if timer is restricted in days of the week
         allowed_weekdays = self._properties["days"]
         if len(allowed_weekdays) > 0:
-            weekday = (
-                dt_util.as_local(next).weekday() + 1
-            ) % 7
+            weekday = (dt_util.as_local(next).weekday() + 1) % 7
             while weekday not in allowed_weekdays:
                 next = next + datetime.timedelta(days=1)
                 weekday = (dt_util.as_local(next).weekday() + 1) % 7
