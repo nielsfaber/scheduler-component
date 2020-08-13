@@ -3,7 +3,9 @@
   "name": "Scheduler",
   "documentation": "https://github.com/nielsfaber/scheduler-component",
   "issue_tracker": "https://github.com/nielsfaber/scheduler-component/issues",
-  "dependencies": [],
+  "dependencies": [
+    "mqtt"
+  ],
   "codeowners": [
     "@nielsfaber"
   ],
