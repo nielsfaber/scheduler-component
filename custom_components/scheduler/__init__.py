@@ -39,6 +39,7 @@ from .const import (
     EXPOSED_ENTITY_PROPERTIES,
     STORED_ENTITY_PROPERTIES,
     SUN_ENTITY,
+    # STORAGE_KEY, STORAGE_VERSION,
 )
 
 from .helpers import (
@@ -59,6 +60,18 @@ async def async_setup(hass, config):
     mqtt = hass.components.mqtt
     component = EntityComponent(_LOGGER, DOMAIN, hass)
     _LOGGER.debug("setting up scheduler component")
+    # set up storage for timers
+    # _LOGGER.debug("setting up storage")
+    # id_manager = collection.IDManager()
+    # storage_collection = TimerStorageCollection(
+    #     Store(hass, STORAGE_VERSION, STORAGE_KEY),
+    #     logging.getLogger(f"{__name__}.storage_collection"),
+    #     id_manager,
+    # )
+    # collection.attach_entity_component_collection(component, storage_collection, SchedulerEntity)
+    # await storage_collection.async_load()
+    # collection.attach_entity_registry_cleaner(hass, DOMAIN, DOMAIN, storage_collection)
+    # _LOGGER.debug("done setting up storage")
 
     async def async_handle_discovery(msg):
         entity_id = get_id_from_topic(msg.topic)
@@ -274,6 +287,9 @@ class SchedulerEntity(ToggleEntity):
                 await self.async_start_timer()
             else:
                 self._state = STATE_DISABLED
+            # if time_has_sun(self._properties['time']):
+            #     #homeassistant.helpers.event.async_track_state_change
+            #     #homeassistant.helpers.event.async_track_sunrise
 
     async def async_will_remove_from_hass(self):
         _LOGGER.debug("async_will_remove_from_hass")
@@ -310,6 +326,7 @@ class SchedulerEntity(ToggleEntity):
                 time_sun[: len(time_sun) - 3] + time_sun[len(time_sun) - 2 :],
                 "%Y-%m-%dT%H:%M:%S%z",
             )
+             # _LOGGER.debug("%s is at: %s" % (sunrise_sunset, dt_util.as_local(time_sun)))
 
             time_offset = datetime.datetime.strptime(offset_string, "%H:%M")
             time_offset = datetime.timedelta(
@@ -338,7 +355,7 @@ class SchedulerEntity(ToggleEntity):
             weekday = (dt_util.as_local(next).weekday() + 1) % 7
             while weekday not in allowed_weekdays:
                 next = next + datetime.timedelta(days=1)
-                weekday = (dt_util.as_local(next).weekday() + 1) % 7
+                weekday = (dt_util.as_local(next).weekday() + 1) % 7 # convert to Sunday=0, Saturday=6
 
         next_localized = dt_util.as_local(next)
 
