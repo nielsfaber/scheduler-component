@@ -1,0 +1,24 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  validate_hacs:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v2"
+      - name: HACS validation
+        uses: "hacs/integration/action@master"
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CATEGORY: "integration"
+  validate_hassfest:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v2"
+      - name: Hassfest validation
+        uses: "home-assistant/actions/hassfest@master"
