@@ -1,19 +1,5 @@
-"""Handle imports, variables, and some other stuff."""
+"""Handle the scheduler domain."""
 import logging
-from datetime import datetime
-
-from homeassistant.helpers import service
-from homeassistant.helpers.entity_component import EntityComponent
-from homeassistant.helpers.event import async_track_state_change
-from homeassistant.helpers.restore_state import RestoreEntity
-
-# from homeassistant.helpers.entity import (
-#     ToggleEntity,
-#     Entity
-# )
-from homeassistant.util import convert
-from homeassistant.util import dt as dt_util
-from homeassistant.util import location as loc_util
 
 from .const import (
     DOMAIN,
@@ -43,6 +29,12 @@ from .const import (
     SUN_ENTITY,
 )
 from .helpers import entity_exists_in_hass, get_id_from_topic, service_exists_in_hass
+
+# from homeassistant.helpers.entity import (
+#     ToggleEntity,
+#     Entity
+# )
+
 
 _LOGGER = logging.getLogger(__name__)
 
