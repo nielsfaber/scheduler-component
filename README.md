@@ -1,5 +1,5 @@
 # scheduler-component
-
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 ## Introduction
 This is a custom component for Home Assistant, that is used for adding the `scheduler` domain.
 It works nicely together with the [Lovelace scheduler card](https://github.com/nielsfaber/scheduler-card).
@@ -8,13 +8,10 @@ A scheduler entity defines an action at a certain time, for example 'turn on my 
 Any entity in HA can be used for making a scheduler entity, together with any service that is available in HA.
 
 ## Installation
-Run this command from your HA config folder to automatically download and move the files:
-```
-curl https://raw.githubusercontent.com/nielsfaber/scheduler-component/master/install.sh | sh
-```
+Make sure you have HACS installed. If you don't, run `curl -sfSL https://hacs.xyz/install | bash -` in HA.
+Then choose Components under HACS. Choose the menu in the upper right, and select Custom repositories. Then add this repo's URL. You should be able to choose Install now.
 
 Otherwise clone or download the source code as a zip file and add/merge the `custom_components/` folder with its contents in your configuration directory.
-
 
 ## Configuration
 Add to `configuration.yaml`:
