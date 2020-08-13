@@ -3,7 +3,10 @@ import voluptuous as vol
 import json
 from homeassistant.helpers.json import JSONEncoder
 from homeassistant.helpers.entity_component import EntityComponent
-
+# from homeassistant.helpers.entity import (
+#     ToggleEntity,
+#     Entity
+# )
 from homeassistant.util import convert, dt as dt_util, location as loc_util
 from datetime import datetime
 from homeassistant.helpers import (
