@@ -5,8 +5,6 @@ from homeassistant.const import ATTR_ENTITY_ID
 DOMAIN = "scheduler"
 ENTITY_ID_FORMAT = DOMAIN + ".{}"
 
-# STORAGE_KEY = DOMAIN
-# STORAGE_VERSION = 1
 
 SERVICE_TURN_ON = "turn_on"
 SERVICE_TURN_OFF = "turn_off"
