@@ -388,7 +388,7 @@ class SchedulerEntity(ToggleEntity):
 
         # wait 1 minute before restarting
         now = dt_util.now().replace(microsecond=0)
-        next = now + timedelta(minutes=1)
+        next = now + datetime.timedelta(minutes=1)
 
         self._timer = async_track_point_in_utc_time(
             self.hass, self.async_cooldown_timer_finished, next
