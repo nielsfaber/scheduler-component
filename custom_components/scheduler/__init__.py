@@ -1,52 +1,49 @@
-import logging
-import voluptuous as vol
-import json
 import datetime
-from homeassistant.helpers.json import JSONEncoder
-from homeassistant.helpers.entity_component import EntityComponent
-from homeassistant.helpers.entity import ToggleEntity, Entity
-from homeassistant.util import convert, dt as dt_util, location as loc_util
-from homeassistant.helpers import (
-    config_validation as cv,
-    service,
-)
-from homeassistant.const import ATTR_ENTITY_ID
-from homeassistant.helpers.event import async_track_state_change
-from homeassistant.components.timer import TimerStorageCollection
-from homeassistant.helpers import collection
-from homeassistant.helpers.storage import Store
-from homeassistant.helpers.event import async_track_point_in_utc_time
-import homeassistant.util.dt as dt_util
+import json
+import logging
 
+import homeassistant.util.dt as dt_uti
+import voluptuous as vol
+from homeassistant.components.timer import TimerStorageCollection
+from homeassistant.helpers import collection, service
+from homeassistant.helpers.entity import Entity, ToggleEntity
+from homeassistant.helpers.entity_component import EntityComponent
+from homeassistant.helpers.event import (
+    async_track_point_in_utc_time,
+    async_track_state_change,
+)
+from homeassistant.helpers.storage import Store
+from homeassistant.util import convert
+from homeassistant.util import dt as dt_util
+from homeassistant.util import location as loc_util
+
+from .const import DOMAIN  # STORAGE_KEY, STORAGE_VERSION,
 from .const import (
-    DOMAIN,
-    STATE_INITIALIZING,
-    STATE_WAITING,
-    STATE_TRIGGERED,
-    STATE_DISABLED,
-    STATE_INVALID,
-    SERVICE_TURN_ON,
-    SERVICE_TURN_OFF,
-    SERVICE_TEST,
-    SERVICE_REMOVE,
-    SERVICE_EDIT,
-    SERVICE_ADD,
-    SCHEMA_ENTITY,
-    SCHEMA_EDIT,
-    SCHEMA_ADD,
-    MQTT_DISCOVERY_TOPIC,
-    MQTT_STORAGE_TOPIC,
     EXPOSED_ENTITY_PROPERTIES,
+    MQTT_DISCOVERY_TOPIC,
+    SCHEMA_ADD,
+    SCHEMA_EDIT,
+    SCHEMA_ENTITY,
+    SERVICE_ADD,
+    SERVICE_EDIT,
+    SERVICE_REMOVE,
+    SERVICE_TEST,
+    SERVICE_TURN_OFF,
+    SERVICE_TURN_ON,
+    STATE_DISABLED,
+    STATE_INITIALIZING,
+    STATE_INVALID,
+    STATE_TRIGGERED,
+    STATE_WAITING,
     STORED_ENTITY_PROPERTIES,
     SUN_ENTITY,
-    # STORAGE_KEY, STORAGE_VERSION,
+    mqtt_storage_topic,
 )
-
 from .helpers import (
-    get_id_from_topic,
     entity_exists_in_hass,
-    service_exists_in_hass,
+    get_id_from_topic,
     parse_sun_time_string,
+    service_exists_in_hass,
     time_has_sun,
 )
 
@@ -57,6 +54,7 @@ DEPENDENCIES = ["mqtt"]
 
 
 async def async_setup(hass, config):
+    """Async setup function, that connects to MQTT, and registers services."""
     mqtt = hass.components.mqtt
     component = EntityComponent(_LOGGER, DOMAIN, hass)
     _LOGGER.debug("setting up scheduler component")
@@ -145,18 +143,22 @@ class SchedulerEntity(ToggleEntity):
 
     @property
     def should_poll(self):
+        """Return false, because you shouldn't poll this."""
         return False
 
     @property
     def name(self):
+        """Return ID, because there isn't a friendly name."""
         return self.id
 
     @property
     def icon(self):
+        """Return the calendar clock icon."""
         return "mdi:calendar-clock"
 
     @property
     def state(self):
+        """Return the state."""
         return self._state
 
     @property
@@ -166,6 +168,7 @@ class SchedulerEntity(ToggleEntity):
 
     @property
     def state_attributes(self):
+        """Return all attributes."""
         attributes = {}
         for key, value in self._properties.items():
             if key in EXPOSED_ENTITY_PROPERTIES and value is not None:
@@ -177,6 +180,7 @@ class SchedulerEntity(ToggleEntity):
         return attributes
 
     def get_service_call(self):
+        """Get the right service to call for this timer."""
         if not self._properties["service"]:
             return None
         command = {}
@@ -202,6 +206,7 @@ class SchedulerEntity(ToggleEntity):
         return command
 
     def validate_configuration(self):
+        """Validation partial placeholder."""
         init = True
         for key, value in self._properties.items():
             if value is None:
@@ -227,6 +232,7 @@ class SchedulerEntity(ToggleEntity):
         return False
 
     async def async_execute_command(self):
+        """Helper to execute command."""
         service_call = self.get_service_call()
         _LOGGER.debug("executing service %s" % service_call["service"])
         await service.async_call_from_config(
@@ -234,6 +240,7 @@ class SchedulerEntity(ToggleEntity):
         )
 
     async def async_turn_on(self):
+        """Turn on self."""
         if self._properties["enabled"] == True:
             return
         self._properties["enabled"] = True
@@ -241,6 +248,7 @@ class SchedulerEntity(ToggleEntity):
         await self.async_start_timer()
 
     async def async_turn_off(self):
+        """Turn off self."""
         if self._properties["enabled"] == False:
             return
         self._properties["enabled"] = False
@@ -255,6 +263,7 @@ class SchedulerEntity(ToggleEntity):
         await self.async_update_ha_state()
 
     async def async_service_remove(self):
+        """Remove self."""
         _LOGGER.debug("removing entity %s" % self.id)
 
         self._state = STATE_DISABLED
@@ -264,10 +273,11 @@ class SchedulerEntity(ToggleEntity):
             self._properties["next_trigger"] = None
 
         await self.async_remove()
-        self.hass.components.mqtt.publish(MQTT_STORAGE_TOPIC(self.id), None, None, True)
+        self.hass.components.mqtt.publish(mqtt_storage_topic(self.id), None, None, True)
         return
 
     async def async_service_edit(self, time=None, days=None):
+        """Do checks, and if it works, store entity state and start timer."""
         if time is not None or days is not None:
             message = {}
             if time is not None:
@@ -280,6 +290,7 @@ class SchedulerEntity(ToggleEntity):
             await self.async_start_timer()
 
     async def async_added_to_hass(self):
+        """Handle being added to Home Assistant."""
         await super().async_added_to_hass()
 
         if self.validate_configuration() is True:
@@ -292,9 +303,11 @@ class SchedulerEntity(ToggleEntity):
             #     #homeassistant.helpers.event.async_track_sunrise
 
     async def async_will_remove_from_hass(self):
+        """Placeholder for removing from HASS."""
         _LOGGER.debug("async_will_remove_from_hass")
 
     def store_entity_state(self):
+        """Publish the state in MQTT."""
         output = {}
         for key, value in self._properties.items():
             if key in STORED_ENTITY_PROPERTIES and value is not None:
@@ -302,10 +315,14 @@ class SchedulerEntity(ToggleEntity):
 
         output = json.dumps(output)
         self.hass.components.mqtt.publish(
-            MQTT_STORAGE_TOPIC(self.id), output, None, True
+            mqtt_storage_topic(self.id), output, None, True
         )
 
     async def async_start_timer(self):
+        """Start the timer.
+- Check if it's a sun time string. If so, turn it into a regular time.
+- Do checks.
+- Update state."""
         self._state = STATE_INITIALIZING
         if self._timer:
             self._timer()
@@ -334,44 +351,47 @@ class SchedulerEntity(ToggleEntity):
             )
 
             if sign == "+":
-                next = time_sun + time_offset
+                nexttime = time_sun + time_offset
             else:
-                next = time_sun - time_offset
+                nexttime = time_sun - time_offset
         else:
             time = dt_util.parse_time(time_string)
             today = dt_util.start_of_local_day()
-            next = dt_util.as_utc(datetime.datetime.combine(today, time))
+            nexttime = dt_util.as_utc(datetime.datetime.combine(today, time))
 
         # check if time has already passed for today
         now = dt_util.now().replace(microsecond=0)
-        delta = next - now
+        delta = nexttime - now
         while delta.total_seconds() < 0:
-            next = next + datetime.timedelta(days=1)
-            delta = next - now
+            nexttime = nexttime + datetime.timedelta(days=1)
+            delta = nexttime - now
 
         # check if timer is restricted in days of the week
         allowed_weekdays = self._properties["days"]
         if len(allowed_weekdays) > 0:
-            weekday = (dt_util.as_local(next).weekday() + 1) % 7
+            weekday = (dt_util.as_local(nexttime).weekday() + 1) % 7
             while weekday not in allowed_weekdays:
-                next = next + datetime.timedelta(days=1)
+                nexttime = nexttime + datetime.timedelta(days=1)
                 weekday = (
-                    dt_util.as_local(next).weekday() + 1
+                    dt_util.as_local(nexttime).weekday() + 1
                 ) % 7  # convert to Sunday=0, Saturday=6
 
-        next_localized = dt_util.as_local(next)
+        next_localized = dt_util.as_local(nexttime)
 
         self._properties["next_trigger"] = next_localized.isoformat()
         self._state = STATE_WAITING
 
         self._timer = async_track_point_in_utc_time(
-            self.hass, self.async_timer_finished, next
+            self.hass, self.async_timer_finished, nexttime
         )
 
-        _LOGGER.debug("timer for %s triggers in %s" % (self.entity_id, (next - now)))
+        _LOGGER.debug(
+            "timer for %s triggers in %s" % (self.entity_id, (nexttime - now))
+        )
         await self.async_update_ha_state()
 
     async def async_timer_finished(self, time):
+        """Update state, and then execute the timer's command."""
         self._timer = None
 
         if self._state != STATE_WAITING:
@@ -395,6 +415,7 @@ class SchedulerEntity(ToggleEntity):
         )
 
     async def async_cooldown_timer_finished(self, time):
+        """Start the timer, now that the cooldown timer finished."""
         _LOGGER.debug("async_cooldown_timer_finished")
         self._timer = None
 
