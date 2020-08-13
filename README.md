@@ -1,5 +1,5 @@
 # scheduler-component
-
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 ## Introduction
 This is a custom component for Home Assistant, that is used for adding the `scheduler` domain.
 It works nicely together with the [Lovelace scheduler card](https://github.com/nielsfaber/scheduler-card).
