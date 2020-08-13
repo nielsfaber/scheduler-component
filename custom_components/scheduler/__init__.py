@@ -326,7 +326,7 @@ class SchedulerEntity(ToggleEntity):
                 time_sun[: len(time_sun) - 3] + time_sun[len(time_sun) - 2 :],
                 "%Y-%m-%dT%H:%M:%S%z",
             )
-             # _LOGGER.debug("%s is at: %s" % (sunrise_sunset, dt_util.as_local(time_sun)))
+            # _LOGGER.debug("%s is at: %s" % (sunrise_sunset, dt_util.as_local(time_sun)))
 
             time_offset = datetime.datetime.strptime(offset_string, "%H:%M")
             time_offset = datetime.timedelta(
@@ -355,7 +355,9 @@ class SchedulerEntity(ToggleEntity):
             weekday = (dt_util.as_local(next).weekday() + 1) % 7
             while weekday not in allowed_weekdays:
                 next = next + datetime.timedelta(days=1)
-                weekday = (dt_util.as_local(next).weekday() + 1) % 7 # convert to Sunday=0, Saturday=6
+                weekday = (
+                    dt_util.as_local(next).weekday() + 1
+                ) % 7  # convert to Sunday=0, Saturday=6
 
         next_localized = dt_util.as_local(next)
 

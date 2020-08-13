@@ -3,6 +3,7 @@ import voluptuous as vol
 import json
 from homeassistant.helpers.json import JSONEncoder
 from homeassistant.helpers.entity_component import EntityComponent
+
 # from homeassistant.helpers.entity import (
 #     ToggleEntity,
 #     Entity
