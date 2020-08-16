@@ -1,6 +1,7 @@
+"""Store constants."""
 import voluptuous as vol
-from homeassistant.helpers import config_validation as cv
 from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.helpers import config_validation as cv
 
 DOMAIN = "scheduler"
 ENTITY_ID_FORMAT = DOMAIN + ".{}"
@@ -39,7 +40,8 @@ SCHEMA_ADD = vol.Schema(
 MQTT_DISCOVERY_TOPIC = "scheduler/+"
 
 
-def MQTT_STORAGE_TOPIC(id):
+def mqtt_storage_topic(id):
+    """Get the scheduler MQTT topic from an ID."""
     return "scheduler/%s" % id
 
 
