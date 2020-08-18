@@ -1,23 +1,13 @@
-turn_on:
-  description: Enable the scheduler rule to execute at the given time.
-  fields:
-    entity_id:
-      description: Identifier of the scheduler rule.
-      example: "scheduler.scheduler_1"
-
-turn_off:
-  description: Disable the scheduler rule (cancel the timer).
-  fields:
-    entity_id:
-      description: Identifier of the scheduler rule.
-      example: "scheduler.scheduler_1"
 
 test:
   description: Perform direct execution of the scheduler rule, for testing the action.
   fields:
     entity_id:
       description: Identifier of the scheduler rule.
-      example: "scheduler.scheduler_1"
+      example: "switch.scheduler_abcdef"
+    entry:
+      description: Index of the entry (for schedules that have multiple entries)
+      example: 0
 
 remove:
   description: Remove a rule from scheduler

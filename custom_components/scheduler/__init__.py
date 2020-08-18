@@ -21,6 +21,9 @@ from homeassistant.helpers import (
     service,
 )
 from .const import (
+    DOMAIN,
+    SERVICE_ADD,
+    SCHEMA_ADD,
     SUN_ENTITY,
 )
 
@@ -30,19 +33,6 @@ from homeassistant.helpers.entity_registry import async_get_registry as get_enti
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=30)
-
-DOMAIN = "scheduler"
-SERVICE_ADD = "add"
-
-SCHEMA_ADD = vol.Schema(
-    {
-        vol.Required("time"): cv.string,
-        vol.Optional("days"): list,
-        vol.Required("entity"): cv.entity_id,
-        vol.Required("service"): cv.string,
-        vol.Optional("service_data"): dict,
-    }
-)
 
 async def async_setup(hass, config):
     """Track states and offer events for sensors."""
@@ -66,10 +56,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     async def async_service_add(data):
         # TODO: add validation
-        output = dict(data.data)
-        output["enabled"] = True
 
-        await coordinator.add_entity(data)
+        await coordinator.add_entity(data.data)
 
     service.async_register_admin_service(
         hass, DOMAIN, SERVICE_ADD, async_service_add, SCHEMA_ADD
@@ -108,7 +96,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
 
     async def add_entity(self, data):
         for item in self._listeners:
-            item(data.data)
+            item(data)
 
 
     async def async_add_device(self):

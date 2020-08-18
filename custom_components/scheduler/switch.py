@@ -9,6 +9,8 @@ import homeassistant.util.dt as dt_util
 from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.helpers.service import async_call_from_config
 from homeassistant.helpers.restore_state import RestoreEntity
+
+from homeassistant.components.switch import SwitchEntity
 from homeassistant.helpers.entity_registry import async_entries_for_device
 from homeassistant.helpers.device_registry import async_entries_for_config_entry
 from homeassistant.helpers.entity_component import EntityComponent
@@ -16,6 +18,7 @@ from homeassistant.helpers.event import (
     async_track_point_in_utc_time,
 )
 
+from homeassistant.helpers import entity_platform
 
 from .datacollection import DataCollection
 from .const import (
@@ -25,6 +28,12 @@ from .const import (
     STATE_TRIGGERED,
     STATE_DISABLED,
     STATE_INVALID,
+    SERVICE_TEST,
+    SERVICE_REMOVE,
+    SERVICE_EDIT,
+    SCHEMA_ENTITY,
+    SCHEMA_TEST,
+    SCHEMA_EDIT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -87,6 +96,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     # We add a listener after fetching the data, so manually trigger listener
     coordinator.async_add_listener(async_add_switch)
 
+    platform = entity_platform.current_platform.get()
+
+    platform.async_register_entity_service(
+        SERVICE_TEST, SCHEMA_TEST, "async_execute_command"
+    )
+
+    platform.async_register_entity_service(
+        SERVICE_REMOVE, SCHEMA_ENTITY, "async_service_remove"
+    )
+
+    platform.async_register_entity_service(
+        SERVICE_EDIT, SCHEMA_EDIT, "async_service_edit"
+    )
 
 
 class ScheduleEntity(RestoreEntity, ToggleEntity):
@@ -103,6 +125,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         self._state = STATE_INITIALIZING
         self._timer = None
         self._entry = None
+        self._next_trigger = None
 
     @property
     def device_info(self) -> dict:
@@ -141,8 +164,10 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     @property
     def state_attributes(self):
         """Return the data of the entity."""
-        output = self.dataCollection.export_data()
-        if self._next_trigger: output["next_trigger"] = self._next_trigger
+        output = self.dataCollection.export_data() if self.dataCollection is not None else {}
+        _LOGGER.debug(output)
+        if self._next_trigger:
+            output["next_trigger"] = self._next_trigger
 
         return output
 
@@ -157,10 +182,26 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         """Return a unique ID to use for this entity."""
         return f"{self.id}"
 
+    async def async_turn_off(self):
+        if self._state != STATE_DISABLED:
+            self._state = STATE_DISABLED
+            if self._timer:
+                self._timer()
+                self._timer = None
+                self._next_trigger = None
 
+    async def async_turn_on(self):
+        if self._state == STATE_DISABLED:
+            if not self._valid:
+                self._state = STATE_INVALID
+            else:
+                await self.async_start_timer()
 
     async def async_start_timer(self):
         """Search the entries for nearest timepoint and start timer."""
+        if self.dataCollection is None:
+            return
+
         self._entry = self.dataCollection.get_next_entry(self.coordinator.sun_data)
 
         timestamp = self.dataCollection.get_timestamp_for_entry(self._entry, self.coordinator.sun_data)
@@ -232,7 +273,28 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             self._valid = data.import_data(state.attributes)            
             self.dataCollection = data
             
+        _LOGGER.debug(self.dataCollection)
         await self.async_start_timer()
+
+    async def async_service_remove(self):
+        _LOGGER.debug("service_remove")   
+        self._state = STATE_DISABLED
+        if self._timer:
+            self._timer()
+            self._timer = None
+        await self.async_remove()
+
+    async def async_service_edit(self, entries, actions):
+        _LOGGER.debug("service_edit")
+
+        data = DataCollection()
+        data.import_from_service({
+            "entries": entries,
+            "actions": actions,
+        })
+        self.dataCollection = data
+
+        await self.async_update_ha_state()
         
 
     async def async_update(self):
