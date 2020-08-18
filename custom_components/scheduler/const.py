@@ -40,9 +40,9 @@ SCHEMA_ADD = vol.Schema(
 MQTT_DISCOVERY_TOPIC = "scheduler/+"
 
 
-def mqtt_storage_topic(id):
+def mqtt_storage_topic(mqtt_id):
     """Get the scheduler MQTT topic from an ID."""
-    return "scheduler/%s" % id
+    return f"scheduler/{mqtt_id}"
 
 
 STATE_INITIALIZING = "initializing"
@@ -52,22 +52,22 @@ STATE_DISABLED = "off"
 STATE_INVALID = "invalid"
 
 
-STORED_ENTITY_PROPERTIES = [
+STORED_ENTITY_PROPERTIES = (
     "time",
     "days",
     "entity",
     "service",
     "service_data",
     "enabled",
-]
+)
 
-EXPOSED_ENTITY_PROPERTIES = [
+EXPOSED_ENTITY_PROPERTIES = (
     "time",
     "days",
     "entity",
     "service",
     "service_data",
     "next_trigger",
-]
+)
 
 SUN_ENTITY = "sun.sun"
