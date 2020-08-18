@@ -20,6 +20,9 @@ from homeassistant.helpers import (
     config_validation as cv,
     service,
 )
+from .const import (
+    SUN_ENTITY,
+)
 
 from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.helpers.device_registry import async_get_registry as get_device_registry
@@ -49,8 +52,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up Scheduler integration from a config entry."""
     session = async_get_clientsession(hass)
 
-    coordinator = SchedulerGateway(hass, session, entry)
-
+    coordinator = SchedulerCoordinator(hass, session, entry)
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -76,17 +78,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 
-class SchedulerGateway(DataUpdateCoordinator):
-    """Define an object to hold scheulder data."""
+class SchedulerCoordinator(DataUpdateCoordinator):
+    """Define an object to hold scheduler data."""
 
     def __init__(self, hass, session, entry):
         """Initialize."""
-        
         super().__init__(
             hass, _LOGGER, name=DOMAIN
         )
-        self.id = 'myid1234567'
+        self.id = entry.unique_id
+        self.hass = hass
+        self.sun_data = {
+            "sunrise": None,
+            "sunset": None
+        }
 
+        self.update_sun_data()
+    
+    def update_sun_data(self):
+        _LOGGER.debug("update_sun_data")
+        sun_state = self.hass.states.get(SUN_ENTITY)
+        self.sun_data["sunrise"] = sun_state.attributes["next_rising"]
+        self.sun_data["sunset"] = sun_state.attributes["next_setting"]
 
     async def _async_update_data(self):
         """Update data via library."""
@@ -94,8 +107,6 @@ class SchedulerGateway(DataUpdateCoordinator):
         return True
 
     async def add_entity(self, data):
-
-
         for item in self._listeners:
             item(data.data)
 
@@ -111,8 +122,6 @@ class SchedulerGateway(DataUpdateCoordinator):
             "switch",
             "schedule_%i" % num,
         )
-        
-
 
 async def async_unload_entry(hass, entry):
     """Unload Scheduler config entry."""

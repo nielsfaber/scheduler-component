@@ -39,15 +39,6 @@ SCHEMA_ADD = vol.Schema({
     vol.Optional('service_data'): dict,
 })
 
-
-MQTT_DISCOVERY_TOPIC = 'scheduler/+'
-
-
-def MQTT_STORAGE_TOPIC(id):
-     return 'scheduler/%s' % id
-
-
-
 STATE_INITIALIZING = 'initializing'
 STATE_WAITING = 'waiting'
 STATE_TRIGGERED = 'triggered'

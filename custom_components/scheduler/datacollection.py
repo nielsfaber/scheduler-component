@@ -6,33 +6,11 @@ from functools import reduce
 
 _LOGGER = logging.getLogger(__name__)
 
-EntryPattern = re.compile('^D([0-9]+)T([0-9\+]+)([A0-9]+)$')
+EntryPattern = re.compile('^D([0-9]+)T([0-9\+\-SR]+)([A0-9]+)$')
 
-def get_timestamp_from_entry(entry):
-    now = dt_util.now().replace(microsecond=0)
-    today = dt_util.start_of_local_day()
-
-    time_str = entry["time"]
-    time_str = time_str[:2] + ":" + time_str[2:]
-    time = dt_util.parse_time(time_str)
-
-    nexttime = dt_util.as_utc(datetime.datetime.combine(today, time))
-
-    # check if time has already passed for today
-    delta = nexttime - now
-    while delta.total_seconds() < 0:
-        nexttime = nexttime + datetime.timedelta(days=1)
-        delta = nexttime - now
-
-    # check if timer is restricted in days of the week
-    allowed_weekdays = entry["days"]
-    if len(allowed_weekdays) > 0 and not 0 in allowed_weekdays:
-        weekday = dt_util.as_local(nexttime).isoweekday()
-        while weekday not in allowed_weekdays:
-            nexttime = nexttime + datetime.timedelta(days=1)
-            weekday = dt_util.as_local(nexttime).isoweekday()
-
-    return nexttime
+from .helpers import (
+    calculate_datetime,
+)
 
 class DataCollection:
     """Defines a base schedule entity."""
@@ -55,7 +33,6 @@ class DataCollection:
             service = service.split(".").pop(1)
 
         if "service_data" in data and data["service_data"]:
-            _LOGGER.debug(data["service_data"])
             service_data = data["service_data"]
             if "entity_id" in service_data:
                 entity = service_data["entity_id"]
@@ -95,23 +72,47 @@ class DataCollection:
                 "time": time,
                 "actions": [0] 
             })
-        
-        next_entry = self.get_next_entry()
 
-    def get_next_entry(self):
+    def get_next_entry(self, sun_data = None):
         """Find the closest timer from now"""
-        
+
         now = dt_util.now().replace(microsecond=0)
         timestamps = []
 
         for entry in self.entries:
-            next_time = get_timestamp_from_entry(entry)
+            next_time = calculate_datetime(entry["time"], entry["days"], sun_data)
             timestamps.append(next_time)
         
         closest_timestamp = reduce(lambda x, y: x if (x-now) < (y-now) else y, timestamps)
         for i in range(len(timestamps)):
             if timestamps[i] == closest_timestamp:
                 return i
+
+    def get_timestamp_for_entry(self, entry, sun_data):
+        """Get a timestamp for a specific entry"""
+        entry = self.entries[entry]
+        return calculate_datetime(entry["time"], entry["days"], sun_data)
+
+    def get_service_calls_for_entry(self, entry):
+        """Get the service call (action) for a specific entry"""
+        calls = []
+        actions = self.entries[entry]["actions"]
+        for action in actions:
+            if len(self.actions) > action:
+                action_data = self.actions[action]
+                call = {
+                    "service": action_data["service"]
+                }
+                domain = action_data["service"].split(".").pop(0)
+                if "entity" in action_data: call["entity_id"] = "{}.{}".format(domain,action_data["entity"])
+                for attr in action_data:
+                    if attr == "service" or attr == "entity": continue
+                    if not "data" in call: call["data"] = {}
+                    call["data"][attr] = action_data[attr]
+
+                calls.append(call)
+
+        return calls
 
     def import_data(self, data):
         """Import datacollection from restored entity"""
@@ -121,6 +122,9 @@ class DataCollection:
         for entry in data["entries"]:
             res = EntryPattern.findall(entry)
 
+            if not res:
+                return False
+            
             days_list = list(res[0][0])
             days_list = [int(i) for i in days_list] 
 
@@ -133,8 +137,8 @@ class DataCollection:
                 "time": res[0][1],
                 "actions": action_list,
             })
-        
-        next_entry = self.get_next_entry()
+
+        return True
 
     def export_data(self):
         output = {
