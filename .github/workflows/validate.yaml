@@ -63,11 +63,13 @@ jobs:
           python -m black -v .
           python -m isort -v .
           python -m black -v .
-      - name: Detailed stats
+      - name: Detailed stats install
         if: matrix.python-version == '3.8'
         run: |
-          python -m pip install --upgrade wemake-python-styleguide 2>&1 > /dev/null
-          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=I001,WPS305
+          python -m pip install --upgrade wemake-python-styleguide
+      - name: Detailed statsI201
+        if: matrix.python-version == '3.8'
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=I,WPS305,C812
       - name: Commit files
         if: matrix.python-version == '3.8'
         run: |
