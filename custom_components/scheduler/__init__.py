@@ -216,8 +216,8 @@ class SchedulerEntity(ToggleEntity):
     def validate_configuration(self):
         """Validation partial placeholder."""
         init = True
-        for key, value in self._properties.items():
-            if value is None:
+        for _property, property_value in self._properties.items():
+            if property_value is None:
                 init = False
 
         if init:
@@ -311,15 +311,15 @@ class SchedulerEntity(ToggleEntity):
             #     #homeassistant.helpers.event.async_track_sunrise
 
     async def async_will_remove_from_hass(self):
-        """Placeholder for removing from HASS."""
+        """Placeholder for being removed from HASS."""
         _LOGGER.debug("async_will_remove_from_hass")
 
     def store_entity_state(self):
         """Publish the state in MQTT."""
         output = {}
-        for key, value in self._properties.items():
-            if key in STORED_ENTITY_PROPERTIES and value is not None:
-                output[key] = value
+        for attribute, attribute_value in self._properties.items():
+            if attribute in STORED_ENTITY_PROPERTIES and attribute_value is not None:
+                output[attribute] = attribute_value
 
         output = json.dumps(output)
         self.hass.components.mqtt.publish(
@@ -327,12 +327,13 @@ class SchedulerEntity(ToggleEntity):
         )
 
     async def async_start_timer(self):
-        """Start the timer.
-        
+        """
+        Start the timer.
+
         - Check if it's a sun time string. If so, turn it into a regular time.
         - Do checks.
         - Update state.
-"""
+        """
         self._state = STATE_INITIALIZING
         if self._timer:
             self._timer()
@@ -352,8 +353,8 @@ class SchedulerEntity(ToggleEntity):
                 time_sun = sun_state.attributes["next_setting"]
 
             time_sun = datetime.datetime.strptime(
-                time_sun[: len(time_sun) - 3]
-                + time_sun[len(time_sun) - 2 :],
+                time_sun[:len(time_sun) - 3]
+                + time_sun[len(time_sun) - 2:],
                 "%Y-%m-%dT%H:%M:%S%z",
             )
             # _LOGGER.debug("%s is at: %s" % (sunrise_sunset, dt_util.as_local(time_sun)))
@@ -385,7 +386,7 @@ class SchedulerEntity(ToggleEntity):
 
         # check if timer is restricted in days of the week
         allowed_weekdays = self._properties["days"]
-        if len(allowed_weekdays) > 0:
+        if allowed_weekdays:
             weekday = (dt_util.as_local(nexttime).weekday() + 1) % 7
             while weekday not in allowed_weekdays:
                 nexttime = nexttime + datetime.timedelta(days=1)
@@ -403,8 +404,7 @@ class SchedulerEntity(ToggleEntity):
         )
 
         _LOGGER.debug(
-            "timer for %s triggers in %s"
-            % (self.entity_id, (nexttime - now))
+            f"timer for {self.entity_id} triggers in {nexttime - now}"
         )
         await self.async_update_ha_state()
 
@@ -415,7 +415,7 @@ class SchedulerEntity(ToggleEntity):
         if self._state != STATE_WAITING:
             return
 
-        _LOGGER.debug("timer for %s is triggered" % self.entity_id)
+        _LOGGER.debug(f"timer for {self.entity_id} is triggered")
 
         self._state = STATE_TRIGGERED
         self._properties["next_trigger"] = None
