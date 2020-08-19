@@ -318,7 +318,10 @@ class SchedulerEntity(ToggleEntity):
         """Publish the state in MQTT."""
         output = {}
         for attribute, attribute_value in self._properties.items():
-            if attribute in STORED_ENTITY_PROPERTIES and attribute_value is not None:
+            if (
+                attribute in STORED_ENTITY_PROPERTIES
+                and attribute_value is not None
+            ):
                 output[attribute] = attribute_value
 
         output = json.dumps(output)
@@ -353,8 +356,8 @@ class SchedulerEntity(ToggleEntity):
                 time_sun = sun_state.attributes["next_setting"]
 
             time_sun = datetime.datetime.strptime(
-                time_sun[:len(time_sun) - 3]
-                + time_sun[len(time_sun) - 2:],
+                time_sun[: len(time_sun) - 3]
+                + time_sun[len(time_sun) - 2 :],
                 "%Y-%m-%dT%H:%M:%S%z",
             )
             # _LOGGER.debug("%s is at: %s" % (sunrise_sunset, dt_util.as_local(time_sun)))
