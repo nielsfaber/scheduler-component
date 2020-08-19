@@ -67,7 +67,7 @@ jobs:
         if: matrix.python-version == '3.8'
         run: |
           python -m pip install --upgrade wemake-python-styleguide
-      - name: Detailed statsI201
+      - name: Detailed stats
         if: matrix.python-version == '3.8'
         run: |
           flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=I,WPS305,C812
