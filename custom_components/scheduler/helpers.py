@@ -4,8 +4,8 @@
 def get_id_from_topic(topic_name):
     """Get an ID from a topic."""
     parts = topic_name.split("/")
-    id = parts[1]
-    return id if id.startswith("schedule_") else None
+    topicid = parts[1]
+    return topicid if topicid.startswith("schedule_") else None
 
 
 def entity_exists_in_hass(hass, entity_id):
