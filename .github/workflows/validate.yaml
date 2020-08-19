@@ -27,50 +27,41 @@ jobs:
   test_advice_flake8:
     name: "Test + advice with flake8"
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.7, 3.8]
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.8
       - name: Cache
         uses: actions/cache@v2
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt') }}-1
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}-2
           restore-keys: |
-            ${{ runner.os }}-pip--1
+            ${{ runner.os }}-pip-2
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade -r requirements.txt
+          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade -r requirements.txt wemake-python-styleguide
       - name: Lint with flake8
         run: |
           flake8 . --count --select=E9,F63,F7,F82,D100,D400,D102,D103 --show-source --statistics
-      - name: Detailed stats install
-        if: matrix.python-version == '3.8'
+      - name: Lower priority
         run: |
-          python -m pip install --upgrade wemake-python-styleguide
-      - name: Ignored stats
-        if: matrix.python-version == '3.8'
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=I,P,WPS305,C812,E203,W503,E800
+      - name: Low priority
         run: |
-          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=I,P,WPS305,C812,E203,W503
-      - name: Unused stuff
-        if: matrix.python-version == '3.8'
-        run: |
-          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=F
-      - name: Docstrings
-        if: matrix.python-version == '3.8'
-        run: |
-          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=D,DAR
+          echo "Some stuff may not be used, but is used in commented out code."
+          echo "Make sure you check with the find command before you remove anything!"
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=D,DAR,F
+          echo "Some stuff may not be used, but is used in commented out code."
+          echo "Make sure you check with the find command before you remove anything!"
       - name: General stats
-        if: matrix.python-version == '3.8'
         run: |
-          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=D,DAR,F,I,P,WPS305,C812,E203,W503
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=D,DAR,F,I,P,WPS,C812,E203,W503
   format:
     name: "Format with black and isort"
     runs-on: ubuntu-latest
