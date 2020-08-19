@@ -5,30 +5,18 @@ def get_id_from_topic(topic_name):
     """Get an ID from a topic."""
     parts = topic_name.split("/")
     id = parts[1]
-
-    if not id.startswith("schedule_"):
-        return None
-    else:
-        return id
+    return id if id.startswith("schedule_") else None
 
 
 def entity_exists_in_hass(hass, entity_id):
     """Check whether an entity ID exists."""
-    if hass.states.get(entity_id) is None:
-        return False
-    else:
-        return True
+    return hass.states.get(entity_id) is not None
 
 
 def service_exists_in_hass(hass, service_name):
     """Check whether a service exists."""
     parts = service_name.split(".")
-    if len(parts) != 2:
-        return False
-    elif hass.services.has_service(parts[0], parts[1]) is None:
-        return False
-    else:
-        return True
+    return len(parts) == 2 and hass.services.has_service(parts[0], parts[1]) is not None
 
 
 def time_has_sun(time_str):
