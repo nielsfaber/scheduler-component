@@ -6,7 +6,7 @@ from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.helpers import config_validation as cv
 
 DOMAIN = "scheduler"
-ENTITY_ID_FORMAT = DOMAIN + ".{}"
+ENTITY_ID_FORMAT = f"{DOMAIN}.{{}}"
 # STORAGE_KEY = DOMAIN
 # STORAGE_VERSION = 1
 
