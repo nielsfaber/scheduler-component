@@ -55,10 +55,22 @@ jobs:
         if: matrix.python-version == '3.8'
         run: |
           python -m pip install --upgrade wemake-python-styleguide
-      - name: Detailed stats
+      - name: Ignored stats
         if: matrix.python-version == '3.8'
         run: |
-          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=I,P,WPS305,C812,E203,W503
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=I,P,WPS305,C812,E203,W503
+      - name: Unused stuff
+        if: matrix.python-version == '3.8'
+        run: |
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=F
+      - name: Docstrings
+        if: matrix.python-version == '3.8'
+        run: |
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=D,DAR
+      - name: General stats
+        if: matrix.python-version == '3.8'
+        run: |
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=D,DAR,F,I,P,WPS305,C812,E203,W503
   format:
     name: "Format with black and isort"
     runs-on: ubuntu-latest
