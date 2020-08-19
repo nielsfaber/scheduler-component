@@ -39,7 +39,7 @@ from .const import (
     SUN_ENTITY,
     mqtt_storage_topic,
 )
-from .helpers import (
+from .sun_mqtt_hass_helpers import (
     entity_exists_in_hass,
     get_id_from_topic,
     parse_sun_time_string,
