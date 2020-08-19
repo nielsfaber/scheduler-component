@@ -1,5 +1,7 @@
 """Store constants."""
-import voluptuous as vol, types
+import types
+
+import voluptuous as vol
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.helpers import config_validation as cv
 
@@ -15,7 +17,9 @@ SERVICE_REMOVE = "remove"
 SERVICE_EDIT = "edit"
 SERVICE_ADD = "add"
 
-BASE_SCHEMA = types.MappingProxyType({vol.Optional("time"): cv.string, vol.Optional("days"): list})
+BASE_SCHEMA = types.MappingProxyType(
+    {vol.Optional("time"): cv.string, vol.Optional("days"): list}
+)
 
 SCHEMA_ENTITY = vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.entity_ids})
 
