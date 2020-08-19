@@ -58,7 +58,7 @@ jobs:
       - name: Detailed stats
         if: matrix.python-version == '3.8'
         run: |
-          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=I,P,WPS305,C812
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=I,P,WPS305,C812,E203,W503
   format:
     name: "Format with black and isort"
     runs-on: ubuntu-latest
