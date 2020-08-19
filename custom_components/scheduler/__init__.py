@@ -6,19 +6,16 @@ import logging
 from homeassistant.helpers import service
 from homeassistant.helpers.entity import ToggleEntity
 from homeassistant.helpers.entity_component import EntityComponent
+from homeassistant.helpers.event import async_track_point_in_utc_time
 
 # from homeassistant.helpers import collection
 # from homeassistant.components.timer import TimerStorageCollection
-from homeassistant.helpers.event import async_track_point_in_utc_time
-
+# from homeassistant.helpers.storage import Store
 # from homeassistant.helpers.event import (
 #     async_track_state_change,
 #     async_track_sunrise
 # )
-from homeassistant.helpers.storage import Store
-from homeassistant.util import convert
 from homeassistant.util import dt as dt_util
-from homeassistant.util import location as loc_util
 
 from .const import DOMAIN  # STORAGE_KEY, STORAGE_VERSION,
 from .const import (
@@ -87,10 +84,10 @@ async def async_setup(hass, config):
             return
 
         _LOGGER.debug("discovered entity %s" % entity_id)
-        data = json.loads(msg.payload)
+        entity_payload = json.loads(msg.payload)
 
         await component.async_add_entities(
-            [SchedulerEntity(hass, entity_id, data)]
+            [SchedulerEntity(hass, entity_id, entity_payload)]
         )
 
     _LOGGER.debug("subscribing to %s" % MQTT_DISCOVERY_TOPIC)
