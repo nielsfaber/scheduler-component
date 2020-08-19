@@ -241,11 +241,10 @@ class SchedulerEntity(ToggleEntity):
 
     async def async_turn_on(self):
         """Turn on self."""
-        if self._properties["enabled"] == True:
-            return
-        self._properties["enabled"] = True
-        self.store_entity_state()
-        await self.async_start_timer()
+        if not self._properties["enabled"]:
+            self._properties["enabled"] = True
+            self.store_entity_state()
+            await self.async_start_timer()
 
     async def async_turn_off(self):
         """Turn off self."""
@@ -279,7 +278,6 @@ class SchedulerEntity(ToggleEntity):
     async def async_service_edit(self, time=None, days=None):
         """Do checks, and if it works, store entity state and start timer."""
         if time is not None or days is not None:
-            message = {}
             if time is not None:
                 self._properties["time"] = time
             if days is not None:
@@ -320,9 +318,11 @@ class SchedulerEntity(ToggleEntity):
 
     async def async_start_timer(self):
         """Start the timer.
-- Check if it's a sun time string. If so, turn it into a regular time.
-- Do checks.
-- Update state."""
+        
+        - Check if it's a sun time string. If so, turn it into a regular time.
+        - Do checks.
+        - Update state.
+"""
         self._state = STATE_INITIALIZING
         if self._timer:
             self._timer()
@@ -340,7 +340,7 @@ class SchedulerEntity(ToggleEntity):
                 time_sun = sun_state.attributes["next_setting"]
 
             time_sun = datetime.datetime.strptime(
-                time_sun[: len(time_sun) - 3] + time_sun[len(time_sun) - 2 :],
+                time_sun[:len(time_sun) - 3] + time_sun[len(time_sun) - 2:],
                 "%Y-%m-%dT%H:%M:%S%z",
             )
             # _LOGGER.debug("%s is at: %s" % (sunrise_sunset, dt_util.as_local(time_sun)))
@@ -408,10 +408,10 @@ class SchedulerEntity(ToggleEntity):
 
         # wait 1 minute before restarting
         now = dt_util.now().replace(microsecond=0)
-        next = now + datetime.timedelta(minutes=1)
+        nexttime = now + datetime.timedelta(minutes=1)
 
         self._timer = async_track_point_in_utc_time(
-            self.hass, self.async_cooldown_timer_finished, next
+            self.hass, self.async_cooldown_timer_finished, nexttime
         )
 
     async def async_cooldown_timer_finished(self, time):
