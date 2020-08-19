@@ -89,7 +89,7 @@ jobs:
           python -m pip install --upgrade pip wheel
           python -m pip install --upgrade -r requirements.txt -r requirements_format.txt
       - name: Pull again
-        run: git pull
+        run: git pull || true
       - name: Run formatting
         run: |
           python -m isort -v .
