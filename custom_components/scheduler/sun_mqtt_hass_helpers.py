@@ -17,8 +17,8 @@ def service_exists_in_hass(hass, service_name):
     """Check whether a service exists."""
     parts = service_name.split(".")
     return (
-        len(parts) == 2 and
-        hass.services.has_service(parts[0], parts[1]) is not None
+        len(parts) == 2
+        and hass.services.has_service(parts[0], parts[1]) is not None
     )
 
 
