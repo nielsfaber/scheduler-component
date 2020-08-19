@@ -16,7 +16,10 @@ def entity_exists_in_hass(hass, entity_id):
 def service_exists_in_hass(hass, service_name):
     """Check whether a service exists."""
     parts = service_name.split(".")
-    return len(parts) == 2 and hass.services.has_service(parts[0], parts[1]) is not None
+    return (
+        len(parts) == 2
+        and hass.services.has_service(parts[0], parts[1]) is not None
+    )
 
 
 def time_has_sun(time_str):

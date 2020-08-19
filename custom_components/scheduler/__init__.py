@@ -76,7 +76,9 @@ async def async_setup(hass, config):
 
         if entity_id is None:
             return
-        elif entity_exists_in_hass(hass, ENTITY_ID_FORMAT.format(entity_id)):
+        elif entity_exists_in_hass(
+            hass, ENTITY_ID_FORMAT.format(entity_id)
+        ):
             return
         elif msg.payload is None:
             return
@@ -84,10 +86,14 @@ async def async_setup(hass, config):
         _LOGGER.debug("discovered entity %s" % entity_id)
         data = json.loads(msg.payload)
 
-        await component.async_add_entities([SchedulerEntity(hass, entity_id, data)])
+        await component.async_add_entities(
+            [SchedulerEntity(hass, entity_id, data)]
+        )
 
     _LOGGER.debug("subscribing to %s" % MQTT_DISCOVERY_TOPIC)
-    await mqtt.async_subscribe(MQTT_DISCOVERY_TOPIC, async_handle_discovery)
+    await mqtt.async_subscribe(
+        MQTT_DISCOVERY_TOPIC, async_handle_discovery
+    )
 
     component.async_register_entity_service(
         SERVICE_TURN_ON, SCHEMA_ENTITY, "async_turn_on"
@@ -115,7 +121,9 @@ async def async_setup(hass, config):
         output["enabled"] = True
 
         num = 1
-        while entity_exists_in_hass(hass, ENTITY_ID_FORMAT.format("schedule_%i" % num)):
+        while entity_exists_in_hass(
+            hass, ENTITY_ID_FORMAT.format("schedule_%i" % num)
+        ):
             num = num + 1
 
         await component.async_add_entities(
@@ -272,7 +280,9 @@ class SchedulerEntity(ToggleEntity):
             self._properties["next_trigger"] = None
 
         await self.async_remove()
-        self.hass.components.mqtt.publish(mqtt_storage_topic(self.id), None, None, True)
+        self.hass.components.mqtt.publish(
+            mqtt_storage_topic(self.id), None, None, True
+        )
         return
 
     async def async_service_edit(self, time=None, days=None):
@@ -332,7 +342,9 @@ class SchedulerEntity(ToggleEntity):
 
         if time_has_sun(time_string):
 
-            sunrise_sunset, sign, offset_string = parse_sun_time_string(time_string)
+            sunrise_sunset, sign, offset_string = parse_sun_time_string(
+                time_string
+            )
             sun_state = self.hass.states.get(SUN_ENTITY)
             if sunrise_sunset == "sunrise":
                 time_sun = sun_state.attributes["next_rising"]
@@ -340,12 +352,15 @@ class SchedulerEntity(ToggleEntity):
                 time_sun = sun_state.attributes["next_setting"]
 
             time_sun = datetime.datetime.strptime(
-                time_sun[:len(time_sun) - 3] + time_sun[len(time_sun) - 2:],
+                time_sun[: len(time_sun) - 3]
+                + time_sun[len(time_sun) - 2 :],
                 "%Y-%m-%dT%H:%M:%S%z",
             )
             # _LOGGER.debug("%s is at: %s" % (sunrise_sunset, dt_util.as_local(time_sun)))
 
-            time_offset = datetime.datetime.strptime(offset_string, "%H:%M")
+            time_offset = datetime.datetime.strptime(
+                offset_string, "%H:%M"
+            )
             time_offset = datetime.timedelta(
                 hours=time_offset.hour, minutes=time_offset.minute
             )
@@ -357,7 +372,9 @@ class SchedulerEntity(ToggleEntity):
         else:
             time = dt_util.parse_time(time_string)
             today = dt_util.start_of_local_day()
-            nexttime = dt_util.as_utc(datetime.datetime.combine(today, time))
+            nexttime = dt_util.as_utc(
+                datetime.datetime.combine(today, time)
+            )
 
         # check if time has already passed for today
         now = dt_util.now().replace(microsecond=0)
@@ -386,7 +403,8 @@ class SchedulerEntity(ToggleEntity):
         )
 
         _LOGGER.debug(
-            "timer for %s triggers in %s" % (self.entity_id, (nexttime - now))
+            "timer for %s triggers in %s"
+            % (self.entity_id, (nexttime - now))
         )
         await self.async_update_ha_state()
 

@@ -28,7 +28,11 @@ from .const import (
     STATE_WAITING,
     SUN_ENTITY,
 )
-from .helpers import entity_exists_in_hass, get_id_from_topic, service_exists_in_hass
+from .helpers import (
+    entity_exists_in_hass,
+    get_id_from_topic,
+    service_exists_in_hass,
+)
 
 # from homeassistant.helpers.entity import (
 #     ToggleEntity,
