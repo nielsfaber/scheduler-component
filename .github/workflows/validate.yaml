@@ -49,19 +49,22 @@ jobs:
       - name: Lint with flake8
         run: |
           flake8 . --count --select=E9,F63,F7,F82,D100,D400,D102,D103 --show-source --statistics
-      - name: Lower priority
+      - name: Don't mind this
         run: |
           flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=I,P,WPS305,C812,E203,W503,E800
-      - name: Low priority
+      - name: Docstrings
+        run: |
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=D,DAR
+      - name: Unused stuff
         run: |
           echo "Some stuff may not be used, but is used in commented out code."
           echo "Make sure you check with the find command before you remove anything!"
-          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=D,DAR,F
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=F
           echo "Some stuff may not be used, but is used in commented out code."
           echo "Make sure you check with the find command before you remove anything!"
       - name: General stats
         run: |
-          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=D,DAR,F,I,P,WPS,C812,E203,W503
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=I,P,WPS305,C812,E203,W503,E800,D,DAR,F
   format:
     name: "Format with black and isort"
     runs-on: ubuntu-latest
