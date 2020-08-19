@@ -138,9 +138,9 @@ async def async_setup(hass, config):
 
 
 class SchedulerEntity(ToggleEntity):
-    def __init__(self, hass, id, data, is_new_entity=False):
-        self.entity_id = ENTITY_ID_FORMAT.format(id)
-        self.id = id
+    def __init__(self, hass, myid, data, is_new_entity=False):
+        self.entity_id = ENTITY_ID_FORMAT.format(myid)
+        self.myid = myid
         self._properties = data
         self.hass = hass
         self._state = STATE_INITIALIZING
@@ -157,7 +157,7 @@ class SchedulerEntity(ToggleEntity):
     @property
     def name(self):
         """Return ID, because there isn't a friendly name."""
-        return self.id
+        return self.myid
 
     @property
     def icon(self):
@@ -256,22 +256,21 @@ class SchedulerEntity(ToggleEntity):
 
     async def async_turn_off(self):
         """Turn off self."""
-        if self._properties["enabled"] == False:
-            return
-        self._properties["enabled"] = False
+        if self._properties["enabled"]:
+            self._properties["enabled"] = False
 
-        self._state = STATE_DISABLED
-        if self._timer:
-            self._timer()
-            self._timer = None
-            self._properties["next_trigger"] = None
+            self._state = STATE_DISABLED
+            if self._timer:
+                self._timer()
+                self._timer = None
+                self._properties["next_trigger"] = None
 
-        self.store_entity_state()
-        await self.async_update_ha_state()
+            self.store_entity_state()
+            await self.async_update_ha_state()
 
     async def async_service_remove(self):
         """Remove self."""
-        _LOGGER.debug("removing entity %s" % self.id)
+        _LOGGER.debug("removing entity %s" % self.myid)
 
         self._state = STATE_DISABLED
         if self._timer:
@@ -281,9 +280,8 @@ class SchedulerEntity(ToggleEntity):
 
         await self.async_remove()
         self.hass.components.mqtt.publish(
-            mqtt_storage_topic(self.id), None, None, True
+            mqtt_storage_topic(self.myid), None, None, True
         )
-        return
 
     async def async_service_edit(self, time=None, days=None):
         """Do checks, and if it works, store entity state and start timer."""
@@ -326,7 +324,7 @@ class SchedulerEntity(ToggleEntity):
 
         output = json.dumps(output)
         self.hass.components.mqtt.publish(
-            mqtt_storage_topic(self.id), output, None, True
+            mqtt_storage_topic(self.myid), output, None, True
         )
 
     async def async_start_timer(self):
