@@ -51,7 +51,6 @@ jobs:
       - name: Lint with flake8
         run: |
           flake8 . --count --select=E9,F63,F7,F82,D100,D400,D102,D103 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=90 --statistics --ignore=I
       - name: Detailed stats install
         if: matrix.python-version == '3.8'
         run: |
@@ -59,7 +58,7 @@ jobs:
       - name: Detailed stats
         if: matrix.python-version == '3.8'
         run: |
-          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=I,WPS305,C812
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=I,P,WPS305,C812
   format:
     name: "Format with black and isort"
     runs-on: ubuntu-latest
