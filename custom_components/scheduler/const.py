@@ -15,28 +15,22 @@ SERVICE_REMOVE = "remove"
 SERVICE_EDIT = "edit"
 SERVICE_ADD = "add"
 
-BASE_SCHEMA = {
-        vol.Optional("time"): cv.string,
-        vol.Optional("days"): list
-    }
+BASE_SCHEMA = {vol.Optional("time"): cv.string, vol.Optional("days"): list}
 
 SCHEMA_ENTITY = vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.entity_ids})
 
 SCHEMA_EDIT = vol.Schema(
-    {**BASE_SCHEMA,
-    **{
-        vol.Required(ATTR_ENTITY_ID): cv.entity_id
-    }
-    }
+    {**BASE_SCHEMA, **{vol.Required(ATTR_ENTITY_ID): cv.entity_id}}
 )
 
 SCHEMA_ADD = vol.Schema(
-    {**BASE_SCHEMA,
-    **{
-        vol.Required("entity"): cv.entity_id,
-        vol.Required("service"): cv.string,
-        vol.Optional("service_data"): dict,
-    }
+    {
+        **BASE_SCHEMA,
+        **{
+            vol.Required("entity"): cv.entity_id,
+            vol.Required("service"): cv.string,
+            vol.Optional("service_data"): dict,
+        },
     }
 )
 
