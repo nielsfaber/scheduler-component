@@ -1,17 +1,19 @@
+"""Scheduler entity source."""
 import datetime
 import json
 import logging
 
-import homeassistant.util.dt as dt_uti
-import voluptuous as vol
-from homeassistant.components.timer import TimerStorageCollection
-from homeassistant.helpers import collection, service
-from homeassistant.helpers.entity import Entity, ToggleEntity
+
+from homeassistant.helpers import service
+from homeassistant.helpers.entity import ToggleEntity
 from homeassistant.helpers.entity_component import EntityComponent
-from homeassistant.helpers.event import (
-    async_track_point_in_utc_time,
-    async_track_state_change,
-)
+# from homeassistant.helpers import collection
+# from homeassistant.components.timer import TimerStorageCollection
+from homeassistant.helpers.event import async_track_point_in_utc_time
+# from homeassistant.helpers.event import (
+#     async_track_state_change,
+#     async_track_sunrise
+# )
 from homeassistant.helpers.storage import Store
 from homeassistant.util import convert
 from homeassistant.util import dt as dt_util
