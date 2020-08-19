@@ -60,9 +60,9 @@ jobs:
         if: matrix.python-version == '3.8'
         run: |
           python -m isort -v .
-          python -m black -v .
+          python -m black -v --line-length 75 .
           python -m isort -v .
-          python -m black -v .
+          python -m black -v --line-length 75 .
       - name: Detailed stats install
         if: matrix.python-version == '3.8'
         run: |
