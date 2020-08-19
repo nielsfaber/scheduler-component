@@ -17,8 +17,8 @@ def service_exists_in_hass(hass, service_name):
     """Check whether a service exists."""
     parts = service_name.split(".")
     return (
-        len(parts) == 2
-        and hass.services.has_service(parts[0], parts[1]) is not None
+        len(parts) == 2 and
+        hass.services.has_service(parts[0], parts[1]) is not None
     )
 
 
@@ -32,11 +32,9 @@ def parse_sun_time_string(time_str):
     if "sunrise" in time_str:
         if "+" in time_str or "-" in time_str:
             return time_str[:7], time_str[7], time_str[8:]
-        else:
-            return "sunrise", "+", "00:00"
+        return "sunrise", "+", "00:00"
 
     elif "sunset" in time_str:
         if "+" in time_str or "-" in time_str:
             return time_str[:6], time_str[6], time_str[7:]
-        else:
-            return "sunset", "+", "00:00"
+        return "sunset", "+", "00:00"
