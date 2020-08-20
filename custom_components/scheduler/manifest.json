@@ -1,0 +1,12 @@
+{
+  "domain": "scheduler",
+  "name": "Scheduler integration",
+  "documentation": "https://github.com/nielsfaber/scheduler-component",
+  "issue_tracker": "https://github.com/nielsfaber/scheduler-component/issues",
+  "dependencies": [],
+  "codeowners": [
+    "@nielsfaber"
+  ],
+  "requirements": [],
+  "config_flow": true
+}
