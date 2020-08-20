@@ -42,12 +42,12 @@ You can treat these entities in the same way as other `switch` entities in HA, m
 ### States
 A scheduler entity can have the following states:
 
-| Name | Description |
+| State | Description |
 |------|-------------|
-| off | Schedule is disabled.  A disabled schedule will not keep track of time, and will not execute any actions. |
-| waiting | Schedule has internal timer running and is waiting for the timer to expire. The attribute `next trigger` provides the moment of expiration  |
-| triggered | Timer is finished and the action is executed. Entity will wait for 1 minute and then reset the timer. |
-| initializing unknown | Something went wrong, the schedule is not running. |
+| `off` | Schedule is disabled.  A disabled schedule will not keep track of time, and will not execute any actions. |
+| `waiting` | Schedule has internal timer running and is waiting for the timer to expire. The attribute `next trigger` provides the moment of expiration  |
+| `triggered` | Timer is finished and the action is executed. Entity will wait for 1 minute and then reset the timer. |
+| `initializing` `unknown` | Something went wrong, the schedule is not running. |
 
 
 ### Services
@@ -57,15 +57,15 @@ Since schedules follow the `switch` platform, you can use the `switch.turn_on` a
 Add a new scheduler entity.
 
 | Name | Type | Default | Description |
-|------|------|---------|-------- | ----------- |
-| actions | list of [Action](#action) | **required** | One or more actions |
-| entries | list of [Entry](#entry) | **required** | One or more entries |
+|------|------|---------|-------------|
+| actions | list | **required** | One or more [Actions](#action) |
+| entries | list | **required** | One or more  [Entries](#entry) |
 
 ##### Action
 An action defines the service calls to be executed.
 
 | Name | Type | Default | Example | Description |
-|------|------|---------|-------- | ----------- |
+|------|------|---------|-------- |-------------|
 | service | string | **required** | `turn_on` | Service that must be executed when the timer expires
 | entity | entity | **required** | `light.my_lamp` | Entity ID of the device that you want to trigger
 | service_data | map | none | `brightness:100` | Extra arguments to pass to the service call
@@ -73,6 +73,7 @@ An action defines the service calls to be executed.
 
 ##### Entry
 An entry defined the time on which to trigger one or more actions.
+
 Fixed time entry:
 | Name | Type | Default | Example | Description |
 |------|------|---------|-------- | ----------- |
@@ -88,16 +89,14 @@ Variable with sun time entry:
 | days | list | none | `- 1`<br />`- 2` | List with specific days for which you want the timer to trigger (1=Monday, 7=Sunday) 
 | actions | list | **required** | - 0 | List of actions to be executed on the specified time
 
-
-
 #### scheduler.edit
 Update the configuration of a scheduler entity.
 
 | Name | Type | Default | Example | Description |
 |------|------|---------|-------- | ----------- |
 | entity_id | entity id | **required** | `switch.schedule_123456` | Entity ID of the scheduler entity
-| time | string | none | "12:00" | Entity ID of the scheduler entity, e.g.
-| days | list | none | `- 0`<br />`- 1` | List with specific days for which you want the timer to trigger (0=Sunday, 6=Saturday)
+| actions | list | **required** | See action | One or more [Actions](#action) |
+| entries | list | **required** | See entry | One or more  [Entries](#entry) |
 
 *Note that not all properties are editable at this point. This is a work-in-progress.*
 
@@ -117,3 +116,4 @@ This will have the same behaviour as it will have when the timer expires.
 | Name | Type | Default | Example | Description |
 |------|------|---------|-------- | ----------- |
 | entity_id | entity id | **required** | `switch.schedule_123456` | Entity ID of the scheduler entity
+| action | int | Optional | 0 | Index of the action to be executed
