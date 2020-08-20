@@ -116,4 +116,4 @@ This will have the same behaviour as it will have when the timer expires.
 | Name | Type | Default | Example | Description |
 |------|------|---------|-------- | ----------- |
 | entity_id | entity id | **required** | `switch.schedule_123456` | Entity ID of the scheduler entity
-| action | int | Optional | 0 | Index of the action to be executed
+| entry | int | Optional | 0 | Index of the entry to be executed
