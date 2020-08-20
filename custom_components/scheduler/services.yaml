@@ -10,40 +10,31 @@ test:
       example: 0
 
 remove:
-  description: Remove a rule from scheduler
+  description: Remove a scheduler entity
   fields:
     entity_id:
       description: Identifier of the scheduler rule.
-      example: "scheduler.scheduler_1"
+      example: "scheduler.scheduler_abcdef"
 
 add:
-  description: Add a rule to scheduler
+  description: Add a scheduler entitity
   fields:
-    time:
-      description: Time at which the action must be executed.
-      example: "'12:00'"
-    days:
-      description: (optional) List with specific days of the week (0=Sunday, 6=Saturday) on which the action must be executed (empty means all days).
-      example: "[0,1]"
-    entity:
-      description: Entity related to the service.
-      example: "light.my_lamp"
-    service:
-      description: Service that must be executed when the timer expires.
-      example: "turn_on"
-    service_data:
-      description: (optional) Extra arguments to pass to the service call.
-      example: "brightness: 200"
+    actions:
+      description: Action to be executed
+      example: '[{service: "turn_on", entity: "light.my_lamp", service_data: {brightness: 200}}]'
+    entries:
+      description: Entries for entity
+      example: '[{time: "12:00", actions: [0]}]'
 
 edit:
-  description: Edit a rule in the scheduler
+  description: Edit a scheduler entitity
   fields:
     entity_id:
-      description: Identifier of the scheduler rule to be edited.
-      example: "scheduler.scheduler_1"
-    time:
-      description: (optional) Time at which the action must be executed.
-      example: "'12:00'"
-    days:
-      description: (optional) List with specific days of the week (0=Sunday, 6=Saturday) on which the action must be executed (empty means all days).
-      example: "[0,1]"
+      description: Identifier of the scheduler rule.
+      example: "scheduler.scheduler_abcdef"
+    actions:
+      description: Action to be executed
+      example: '[{service: "turn_on", entity: "light.my_lamp", service_data: {brightness: 200}}]'
+    entries:
+      description: Entries for entity
+      example: '[{time: "12:00", actions: [0]}]'
