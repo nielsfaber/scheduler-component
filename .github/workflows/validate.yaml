@@ -24,58 +24,82 @@ jobs:
       - uses: "actions/checkout@v2"
       - name: Hassfest validation
         uses: "home-assistant/actions/hassfest@master"
-  test_flake8_black:
-    name: "Test with flake8 and run black"
+  test_advice_flake8:
+    name: "Test + advice with flake8"
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.5, 3.6, 3.7, 3.8]
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ matrix.python-version }}
-      - uses: actions/cache@v2
+          python-version: 3.8
+      - name: Cache
+        uses: actions/cache@v2
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}-2
           restore-keys: |
-            ${{ runner.os }}-pip-
+            ${{ runner.os }}-pip-2
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install --upgrade -r requirements.txt
-      - name: Install more dependencies
-        if: matrix.python-version == '3.8'
-        run: |
-          python -m pip install --upgrade black isort
+          python -m pip install --upgrade -r requirements.txt wemake-python-styleguide
       - name: Lint with flake8
         run: |
-          flake8 . --count --select=E9,F63,F7,F82,D100,D400,D102,D103 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=90 --statistics
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      - name: Don't mind this
+        run: |
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=I,P,WPS305,C812,E203,W503,E800
+      - name: Docstrings
+        run: |
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=D,DAR
+      - name: Unused stuff
+        run: |
+          echo "Some stuff may not be used, but is used in commented out code."
+          echo "Make sure you check with the find command before you remove anything!"
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=F
+          echo "Some stuff may not be used, but is used in commented out code."
+          echo "Make sure you check with the find command before you remove anything!"
+      - name: General stats
+        run: |
+          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --ignore=I,P,WPS305,C812,E203,W503,E800,D,DAR,F
+  format:
+    name: "Format with black and isort"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}-2
+          restore-keys: |
+            ${{ runner.os }}-pip-2
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade -r requirements.txt -r requirements_format.txt
+      - name: Pull again
+        run: git pull || true
       - name: Run formatting
-        if: matrix.python-version == '3.8'
         run: |
           python -m isort -v .
-          python -m black -v .
+          python -m black -v --line-length 75 .
           python -m isort -v .
-          python -m black -v .
-      - name: Detailed stats
-        if: matrix.python-version == '3.8'
-        run: |
-          python -m pip install --upgrade wemake-python-styleguide 2>&1 > /dev/null
-          flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics
+          python -m black -v --line-length 75 .
       - name: Commit files
-        if: matrix.python-version == '3.8'
         run: |
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "GitHub Actions"
           git commit -m "Run formatting" -a || true
       - name: Push changes
-        if: matrix.python-version == '3.8'
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+        run: git push || true

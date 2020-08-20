@@ -1,11 +1,12 @@
-
-import logging
-import re
 import datetime
-import homeassistant.util.dt as dt_util
+import logging
 import math
+import re
+
+import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
+
 
 def entity_exists_in_hass(hass, entity_id):
     """Check whether an entity ID exists."""
@@ -25,20 +26,24 @@ def service_exists_in_hass(hass, service_name):
     else:
         return True
 
+
 def timedelta_to_string(time_input: datetime.timedelta):
     seconds = time_input.total_seconds()
     if seconds >= 0:
-        hours = math.floor(seconds/3600)
-        seconds = seconds - hours*3600
-        minutes = round(seconds/60)
+        hours = math.floor(seconds / 3600)
+        seconds = seconds - hours * 3600
+        minutes = round(seconds / 60)
         sign = "+"
     else:
-        hours = abs(math.ceil(seconds/3600))
-        seconds = seconds + hours*3600
-        minutes = abs(round(seconds/60))
+        hours = abs(math.ceil(seconds / 3600))
+        seconds = seconds + hours * 3600
+        minutes = abs(round(seconds / 60))
         sign = "-"
-        
-    return "{}{}:{}".format(sign, str(hours).zfill(2), str(minutes).zfill(2))
+
+    return "{}{}:{}".format(
+        sign, str(hours).zfill(2), str(minutes).zfill(2)
+    )
+
 
 def calculate_datetime(entry: dict, sun_data):
     """Get datetime object with closest occurance based on time + weekdays input"""
@@ -53,7 +58,7 @@ def calculate_datetime(entry: dict, sun_data):
         if not sun_data:
             _LOGGER.error("no sun data available")
             return
-        
+
         offset_sign = entry["offset"][0]
         offset_string = entry["offset"][1:]
 
@@ -62,13 +67,17 @@ def calculate_datetime(entry: dict, sun_data):
             hours=time_offset.hour, minutes=time_offset.minute
         )
 
-        time_sun = sun_data["sunrise"] if entry["event"] == "sunrise" else sun_data["sunset"]
+        time_sun = (
+            sun_data["sunrise"]
+            if entry["event"] == "sunrise"
+            else sun_data["sunset"]
+        )
         time_sun = datetime.datetime.strptime(
-                time_sun[: len(time_sun) - 3] + time_sun[len(time_sun) - 2 :],
-                "%Y-%m-%dT%H:%M:%S%z",
-            )
+            time_sun[: len(time_sun) - 3] + time_sun[len(time_sun) - 2 :],
+            "%Y-%m-%dT%H:%M:%S%z",
+        )
 
-        if offset_sign ==  "+":
+        if offset_sign == "+":
             nexttime = time_sun + time_offset
         else:
             nexttime = time_sun - time_offset
