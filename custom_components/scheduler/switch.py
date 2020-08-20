@@ -37,22 +37,19 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def entity_exists_in_hass(hass, entity_id):
-    if hass.states.get(entity_id) is None:
-        return False
-    else:
-        return True
+    """Check that an entity exists."""
+    return hass.states.get(entity_id) is not None
 
 
 async def async_setup(hass, config):
     """Track states and offer events for binary sensors."""
-
     return True
 
 
 async def async_setup_platform(
     hass, config, async_add_entities, discovery_info=None
 ):
-    """Set up the light from config."""
+    """Set up the platform from config."""
     return True
 
 
