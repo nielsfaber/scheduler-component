@@ -5,13 +5,11 @@ import secrets
 
 import homeassistant.util.dt as dt_util
 from homeassistant.components.switch import DOMAIN as PLATFORM
-from homeassistant.components.switch import SwitchEntity
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.device_registry import (
     async_entries_for_config_entry,
 )
 from homeassistant.helpers.entity import ToggleEntity
-from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.helpers.entity_registry import async_entries_for_device
 from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.restore_state import RestoreEntity
