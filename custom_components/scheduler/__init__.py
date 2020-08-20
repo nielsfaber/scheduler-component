@@ -20,6 +20,7 @@ from homeassistant.helpers import (
     config_validation as cv,
     service,
 )
+from homeassistant.helpers import device_registry as dr
 from .const import (
     DOMAIN,
     SERVICE_ADD,
@@ -28,8 +29,6 @@ from .const import (
 )
 
 from homeassistant.helpers.entity_component import EntityComponent
-from homeassistant.helpers.device_registry import async_get_registry as get_device_registry
-from homeassistant.helpers.entity_registry import async_get_registry as get_entity_registry
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -43,6 +42,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     session = async_get_clientsession(hass)
 
     coordinator = SchedulerCoordinator(hass, session, entry)
+
+    device_registry = await dr.async_get_registry(hass)
+    device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, coordinator.id)},
+        name="Scheduler",
+        model="Scheduler",
+        sw_version="v1",
+        manufacturer="@nielsfaber"
+    )
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -66,51 +75,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 
-class SchedulerCoordinator(DataUpdateCoordinator):
-    """Define an object to hold scheduler data."""
-
-    def __init__(self, hass, session, entry):
-        """Initialize."""
-        super().__init__(
-            hass, _LOGGER, name=DOMAIN
-        )
-        self.id = entry.unique_id
-        self.hass = hass
-        self.sun_data = {
-            "sunrise": None,
-            "sunset": None
-        }
-
-        self.update_sun_data()
-    
-    def update_sun_data(self):
-        _LOGGER.debug("update_sun_data")
-        sun_state = self.hass.states.get(SUN_ENTITY)
-        self.sun_data["sunrise"] = sun_state.attributes["next_rising"]
-        self.sun_data["sunset"] = sun_state.attributes["next_setting"]
-
-    async def _async_update_data(self):
-        """Update data via library."""
-        _LOGGER.debug("_async_update_data")
-        return True
-
-    async def add_entity(self, data):
-        for item in self._listeners:
-            item(data)
-
-
-    async def async_add_device(self):
-        _LOGGER.debug("async_add_device")
-
-        num = int(time.time()) 
-        
-        entity_registry = await get_entity_registry(self.hass)
-        entity_registry.async_get_or_create(
-            DOMAIN,
-            "switch",
-            "schedule_%i" % num,
-        )
-
 async def async_unload_entry(hass, entry):
     """Unload Scheduler config entry."""
     unload_ok = all(
@@ -123,3 +87,35 @@ async def async_unload_entry(hass, entry):
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
+
+
+class SchedulerCoordinator(DataUpdateCoordinator):
+    """Define an object to hold scheduler data."""
+
+    def __init__(self, hass, session, entry):
+        """Initialize."""
+        self.id = entry.unique_id
+        self.hass = hass
+        self.sun_data = {
+            "sunrise": None,
+            "sunset": None
+        }
+
+        super().__init__(
+            hass, _LOGGER, name=DOMAIN
+        )
+
+        self.update_sun_data()
+    
+    def update_sun_data(self):
+        sun_state = self.hass.states.get(SUN_ENTITY)
+        self.sun_data["sunrise"] = sun_state.attributes["next_rising"]
+        self.sun_data["sunset"] = sun_state.attributes["next_setting"]
+
+    async def _async_update_data(self):
+        """Update data via library."""
+        return True
+
+    async def add_entity(self, data):
+        for item in self._listeners:
+            item(data)

@@ -52,17 +52,14 @@ async def async_setup(hass, config):
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the light from config."""
-    _LOGGER.debug("async_setup_platform")
     return True
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the Scheduler switch devices. """
-    _LOGGER.debug("async_setup_entry")
 
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
 
     entities = []
-
     
     device_registry = await hass.helpers.device_registry.async_get_registry()
     entry = async_entries_for_config_entry(device_registry, config_entry.entry_id)
@@ -70,11 +67,16 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     if len(entry)>1:
         _LOGGER.error("Found multiple devices for integration")
         return False
+    elif len(entry) == 0:
+        _LOGGER.error("Integration needs to be set up before it can be used")
+        return False
     
+
     device = entry[0]
 
     entity_registry = await hass.helpers.entity_registry.async_get_registry()
     for entry in async_entries_for_device(entity_registry, device.id):
+
         entities.append(ScheduleEntity(coordinator, entry.unique_id))
     
     async_add_entities(entities)
@@ -119,7 +121,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         self.coordinator = coordinator
         self.entity_id = "{}.{}".format(PLATFORM,entity_id)
         self.id = entity_id
-        self._name = DOMAIN.title()
+        self._name = entity_id.capitalize().replace("_", " #")
         self.dataCollection = data
         self._valid = True
         self._state = STATE_INITIALIZING
@@ -138,7 +140,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             "sw_version": "v1",
             "manufacturer": "@nielsfaber",
         }
-
+    
     @property
     def name(self) -> str:
         """Return the name of the entity."""
@@ -165,12 +167,10 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     def state_attributes(self):
         """Return the data of the entity."""
         output = self.dataCollection.export_data() if self.dataCollection is not None else {}
-        _LOGGER.debug(output)
         if self._next_trigger:
             output["next_trigger"] = self._next_trigger
 
         return output
-
 
     @property
     def available(self):
@@ -182,6 +182,11 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         """Return a unique ID to use for this entity."""
         return f"{self.id}"
 
+    @property
+    def is_on(self):
+        """Return true if entity is on."""
+        return (self._state != STATE_DISABLED)
+
     async def async_turn_off(self):
         if self._state != STATE_DISABLED:
             self._state = STATE_DISABLED
@@ -189,11 +194,13 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                 self._timer()
                 self._timer = None
                 self._next_trigger = None
+            await self.async_update_ha_state()
 
     async def async_turn_on(self):
         if self._state == STATE_DISABLED:
             if not self._valid:
                 self._state = STATE_INVALID
+                await self.async_update_ha_state()
             else:
                 await self.async_start_timer()
 
@@ -202,6 +209,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         if self.dataCollection is None:
             return
 
+        self.coordinator.update_sun_data()
         self._entry = self.dataCollection.get_next_entry(self.coordinator.sun_data)
 
         timestamp = self.dataCollection.get_timestamp_for_entry(self._entry, self.coordinator.sun_data)
@@ -251,8 +259,6 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
     async def async_execute_command(self):
         """Helper to execute command."""
-        _LOGGER.debug("async_execute_command")
-
         service_calls = self.dataCollection.get_service_calls_for_entry(self._entry)
         for service_call in service_calls:
             _LOGGER.debug("executing service %s" % service_call["service"])
@@ -273,7 +279,6 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             self._valid = data.import_data(state.attributes)            
             self.dataCollection = data
             
-        _LOGGER.debug(self.dataCollection)
         await self.async_start_timer()
 
     async def async_service_remove(self):
@@ -282,10 +287,10 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         if self._timer:
             self._timer()
             self._timer = None
+        
         await self.async_remove()
 
     async def async_service_edit(self, entries, actions):
-        _LOGGER.debug("service_edit")
 
         data = DataCollection()
         data.import_from_service({
@@ -299,5 +304,15 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
     async def async_update(self):
         """Update Scheduler entity."""
-        _LOGGER.debug("async_update")
+        
         await self.coordinator.async_request_refresh()
+
+
+    async def async_will_remove_from_hass(self):
+        """Connect to dispatcher listening for entity data notifications."""
+
+        _LOGGER.debug("async_will_remove_from_hass")
+        await super().async_will_remove_from_hass()
+
+        entity_registry = await self.coordinator.hass.helpers.entity_registry.async_get_registry()
+        entity_registry.async_remove(self.entity_id)

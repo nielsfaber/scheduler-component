@@ -65,23 +65,4 @@ STATE_TRIGGERED = 'triggered'
 STATE_DISABLED = 'off'
 STATE_INVALID = 'invalid'
 
-
-STORED_ENTITY_PROPERTIES = [
-    "time",
-    "days",
-    "entity",
-    "service",
-    "service_data",
-    "enabled",
-]
-
-EXPOSED_ENTITY_PROPERTIES = [
-    "time",
-    "days",
-    "entity",
-    "service",
-    "service_data",
-    "next_trigger",
-]
-
 SUN_ENTITY = "sun.sun"

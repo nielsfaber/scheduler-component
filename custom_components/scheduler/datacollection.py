@@ -7,10 +7,10 @@ import math
 
 _LOGGER = logging.getLogger(__name__)
 
-EntryPattern = re.compile('^D([0-9]+)T([0-9\+\-SR]+)([A0-9]+)$')
+EntryPattern = re.compile('^D([0-9]+)T([0-9SR]+)([A0-9]+)$')
 
 FixedTimePattern = re.compile('^([0-9]{2})([0-9]{2})$')
-SunTimePattern = re.compile('^(S[SR])([\+\-])([0-9]+)$')
+SunTimePattern = re.compile('^([0-9]{4})?(S[SR])([0-9]{4})?$')
 
 from .helpers import (
     calculate_datetime,
@@ -22,12 +22,9 @@ class DataCollection:
     def __init__(self):
         self.entries = []
         self.actions = []
-        _LOGGER.debug("__init__")
 
 
     def import_from_service(self, data: dict):
-        _LOGGER.debug("import_from_service")
-        _LOGGER.debug(data)
 
         for action in data["actions"]:
             service = action['service']
@@ -76,8 +73,8 @@ class DataCollection:
                 my_entry["event"] = entry['event']
                 my_entry["offset"] = entry['offset']
 
-            if "days" in my_entry:
-                my_entry["days"] = my_entry['days']
+            if "days" in entry:
+                my_entry["days"] = entry['days']
                 my_entry["days"].sort()
             else:
                 my_entry["days"] = [0]
@@ -146,16 +143,19 @@ class DataCollection:
             if is_fixed_time:
                 time_str = "{}:{}".format(is_fixed_time.group(1), is_fixed_time.group(2))
                 my_entry["time"] = dt_util.parse_time(time_str)
-            elif is_sun_time:                
-                my_entry["event"] = "sunrise" if is_sun_time.group(1) == "SR" else "sunset"
+            elif is_sun_time:
+                my_entry["event"] = "sunrise" if is_sun_time.group(2) == "SR" else "sunset"
 
-                offset_string = is_sun_time.group(3)
-                time_offset = datetime.datetime.strptime(offset_string, "%H%M")
-                time_offset = datetime.timedelta(
-                    hours=time_offset.hour, minutes=time_offset.minute
-                )
-                if is_sun_time.group(2) == "-":
-                    time_offset = -time_offset
+                if is_sun_time.group(1) is not None:
+                    time_offset = datetime.datetime.strptime(is_sun_time.group(1), "%H%M")
+                    time_offset = -datetime.timedelta(
+                        hours=time_offset.hour, minutes=time_offset.minute
+                    )
+                else:
+                    time_offset = datetime.datetime.strptime(is_sun_time.group(3), "%H%M")
+                    time_offset = datetime.timedelta(
+                        hours=time_offset.hour, minutes=time_offset.minute
+                    )
                 my_entry["offset"] = time_offset
             
             
@@ -186,19 +186,23 @@ class DataCollection:
                 if offset_time >= 0:
                     offset_hours = math.floor(offset_time/3600)
                     offset_mins = math.floor(offset_time/60-offset_hours*60)
-                    offset_hours = "+{}".format(str(abs(offset_hours)).zfill(2))
+                    offset_hours = str(abs(offset_hours)).zfill(2)
                     offset_mins = str(offset_mins).zfill(2)
+
+                    if entry["event"] == "sunrise":
+                        time = "SR{}{}".format(offset_hours,offset_mins)
+                    else:
+                        time = "SS{}{}".format(offset_hours,offset_mins)
                 else:
                     offset_hours = math.ceil(offset_time/3600)
                     offset_mins = math.floor(offset_time/60-offset_hours*60)
-                    offset_hours = "-{}".format(str(abs(offset_hours)).zfill(2))
+                    offset_hours = str(abs(offset_hours)).zfill(2)
                     offset_mins = str(abs(offset_mins)).zfill(2)
 
-                offset_time = "{}{}".format(offset_hours,offset_mins)
-                if entry["event"] == "sunrise":
-                    time = "SR{}".format(offset_time)
-                else:
-                    time = "SS{}".format(offset_time)
+                    if entry["event"] == "sunrise":
+                        time = "{}{}SR".format(offset_hours,offset_mins)
+                    else:
+                        time = "{}{}SS".format(offset_hours,offset_mins)
 
             days_arr = [str(i) for i in entry["days"]] 
             days_string = "".join(days_arr)
