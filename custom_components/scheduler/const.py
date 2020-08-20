@@ -1,24 +1,19 @@
-
+"""Store constants."""
 import voluptuous as vol
-from homeassistant.helpers import (
-    config_validation as cv,
-)
-from homeassistant.const import (
-    ATTR_ENTITY_ID
-)
+from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.helpers import config_validation as cv
 
-DOMAIN = 'scheduler'
-ENTITY_ID_FORMAT = DOMAIN + '.{}'
-
+DOMAIN = "scheduler"
+ENTITY_ID_FORMAT = DOMAIN + ".{}"
 # STORAGE_KEY = DOMAIN
 # STORAGE_VERSION = 1
 
-SERVICE_TURN_ON = 'turn_on'
-SERVICE_TURN_OFF = 'turn_off'
-SERVICE_TEST = 'test'
-SERVICE_REMOVE = 'remove'
-SERVICE_EDIT = 'edit'
-SERVICE_ADD = 'add'
+SERVICE_TURN_ON = "turn_on"
+SERVICE_TURN_OFF = "turn_off"
+SERVICE_TEST = "test"
+SERVICE_REMOVE = "remove"
+SERVICE_EDIT = "edit"
+SERVICE_ADD = "add"
 
 FIXED_TIME_ENTRY_SCHEMA = vol.Schema({
     vol.Required('time'): cv.time,
@@ -59,10 +54,10 @@ SCHEMA_TEST = SCHEMA_ENTITY.extend({
 })
 
 
-STATE_INITIALIZING = 'initializing'
-STATE_WAITING = 'waiting'
-STATE_TRIGGERED = 'triggered'
-STATE_DISABLED = 'off'
-STATE_INVALID = 'invalid'
+STATE_INITIALIZING = "initializing"
+STATE_WAITING = "waiting"
+STATE_TRIGGERED = "triggered"
+STATE_DISABLED = "off"
+STATE_INVALID = "invalid"
 
 SUN_ENTITY = "sun.sun"

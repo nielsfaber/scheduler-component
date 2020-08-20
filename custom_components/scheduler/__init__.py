@@ -1,6 +1,8 @@
 
 """The Scheduler Integration."""
 import logging
+
+import homeassistant.util.dt as dt_uti
 import voluptuous as vol
 import time
 from homeassistant.helpers import config_validation as cv
@@ -32,6 +34,7 @@ from homeassistant.helpers.entity_component import EntityComponent
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=30)
+
 
 async def async_setup(hass, config):
     """Track states and offer events for sensors."""

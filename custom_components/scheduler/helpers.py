@@ -8,6 +8,7 @@ import math
 _LOGGER = logging.getLogger(__name__)
 
 def entity_exists_in_hass(hass, entity_id):
+    """Check whether an entity ID exists."""
     if hass.states.get(entity_id) is None:
         return False
     else:
@@ -15,7 +16,8 @@ def entity_exists_in_hass(hass, entity_id):
 
 
 def service_exists_in_hass(hass, service_name):
-    parts = service_name.split('.')
+    """Check whether a service exists."""
+    parts = service_name.split(".")
     if len(parts) != 2:
         return False
     elif hass.services.has_service(parts[0], parts[1]) is None:
