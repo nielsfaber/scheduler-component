@@ -3,6 +3,7 @@ import logging
 import re
 import datetime
 import homeassistant.util.dt as dt_util
+import math
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,12 +23,26 @@ def service_exists_in_hass(hass, service_name):
     else:
         return True
 
+def timedelta_to_string(time_input: datetime.timedelta):
+    seconds = time_input.total_seconds()
+    if seconds >= 0:
+        hours = math.floor(seconds/3600)
+        seconds = seconds - hours*3600
+        minutes = round(seconds/60)
+        sign = "+"
+    else:
+        hours = abs(math.ceil(seconds/3600))
+        seconds = seconds + hours*3600
+        minutes = abs(round(seconds/60))
+        sign = "-"
+        
+    return "{}{}:{}".format(sign, str(hours).zfill(2), str(minutes).zfill(2))
 
 def calculate_datetime(entry: dict, sun_data):
     """Get datetime object with closest occurance based on time + weekdays input"""
 
     if "time" in entry:
-        time = entry["time"]
+        time = dt_util.parse_time(entry["time"])
 
         today = dt_util.start_of_local_day()
         nexttime = dt_util.as_utc(datetime.datetime.combine(today, time))
@@ -37,14 +52,24 @@ def calculate_datetime(entry: dict, sun_data):
             _LOGGER.error("no sun data available")
             return
         
+        offset_sign = entry["offset"][0]
+        offset_string = entry["offset"][1:]
+
+        time_offset = datetime.datetime.strptime(offset_string, "%H:%M")
+        time_offset = datetime.timedelta(
+            hours=time_offset.hour, minutes=time_offset.minute
+        )
+
         time_sun = sun_data["sunrise"] if entry["event"] == "sunrise" else sun_data["sunset"]
         time_sun = datetime.datetime.strptime(
                 time_sun[: len(time_sun) - 3] + time_sun[len(time_sun) - 2 :],
                 "%Y-%m-%dT%H:%M:%S%z",
             )
 
-        time_offset = entry["offset"]
-        nexttime = time_sun + time_offset
+        if offset_sign ==  "+":
+            nexttime = time_sun + time_offset
+        else:
+            nexttime = time_sun - time_offset
 
     now = dt_util.now().replace(microsecond=0)
 

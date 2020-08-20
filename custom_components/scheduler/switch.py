@@ -60,7 +60,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
 
     entities = []
-    
+
     device_registry = await hass.helpers.device_registry.async_get_registry()
     entry = async_entries_for_config_entry(device_registry, config_entry.entry_id)
 
@@ -282,7 +282,6 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         await self.async_start_timer()
 
     async def async_service_remove(self):
-        _LOGGER.debug("service_remove")   
         self._state = STATE_DISABLED
         if self._timer:
             self._timer()
@@ -311,7 +310,6 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     async def async_will_remove_from_hass(self):
         """Connect to dispatcher listening for entity data notifications."""
 
-        _LOGGER.debug("async_will_remove_from_hass")
         await super().async_will_remove_from_hass()
 
         entity_registry = await self.coordinator.hass.helpers.entity_registry.async_get_registry()
