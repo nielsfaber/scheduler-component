@@ -48,7 +48,7 @@ jobs:
           python -m pip install --upgrade -r requirements.txt wemake-python-styleguide
       - name: Lint with flake8
         run: |
-          flake8 . --count --select=E9,F63,F7,F82,D100,D400,D102,D103 --show-source --statistics
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
       - name: Don't mind this
         run: |
           flake8 . --inline-quotes '"' --count --exit-zero --max-complexity=15 --max-line-length=90 --statistics --select=I,P,WPS305,C812,E203,W503,E800
