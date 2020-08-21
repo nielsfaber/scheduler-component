@@ -1,7 +1,6 @@
 """Config flow for the Scheduler component."""
 import secrets
 
-import voluptuous as vol
 from homeassistant import config_entries
 
 from . import DOMAIN

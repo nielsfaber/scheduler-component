@@ -1,25 +1,14 @@
 """The Scheduler Integration."""
 import logging
-import time
 from datetime import timedelta
 
-import async_timeout
-import homeassistant.util.dt as dt_uti
-import voluptuous as vol
 from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, asyncio
-from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import service
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.entity_component import EntityComponent
-from homeassistant.helpers.update_coordinator import (
-    DataUpdateCoordinator,
-    UpdateFailed,
-)
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import DOMAIN, SCHEMA_ADD, SERVICE_ADD, SUN_ENTITY
 

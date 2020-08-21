@@ -3,15 +3,13 @@ import datetime
 import logging
 import secrets
 
-import homeassistant.util.dt as dt_util
+from homeassistant.util import dt as dt_util
 from homeassistant.components.switch import DOMAIN as PLATFORM
-from homeassistant.components.switch import SwitchEntity
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.device_registry import (
     async_entries_for_config_entry,
 )
 from homeassistant.helpers.entity import ToggleEntity
-from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.helpers.entity_registry import async_entries_for_device
 from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -37,22 +35,19 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def entity_exists_in_hass(hass, entity_id):
-    if hass.states.get(entity_id) is None:
-        return False
-    else:
-        return True
+    """Check that an entity exists."""
+    return hass.states.get(entity_id) is not None
 
 
 async def async_setup(hass, config):
     """Track states and offer events for binary sensors."""
-
     return True
 
 
 async def async_setup_platform(
     hass, config, async_add_entities, discovery_info=None
 ):
-    """Set up the light from config."""
+    """Set up the platform from config."""
     return True
 
 
@@ -66,20 +61,20 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     device_registry = (
         await hass.helpers.device_registry.async_get_registry()
     )
-    entry = async_entries_for_config_entry(
+    devices = async_entries_for_config_entry(
         device_registry, config_entry.entry_id
     )
 
-    if len(entry) > 1:
+    if len(devices) > 1:
         _LOGGER.error("Found multiple devices for integration")
         return False
-    elif len(entry) == 0:
+    elif not devices:
         _LOGGER.error(
             "Integration needs to be set up before it can be used"
         )
         return False
 
-    device = entry[0]
+    device = devices[0]
 
     entity_registry = (
         await hass.helpers.entity_registry.async_get_registry()
@@ -94,7 +89,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     def async_add_switch(data):
         """Add switch for Scheduler."""
 
-        """Generate a unique token"""
+        # Generate a unique token
         token = secrets.token_hex(3)
         while entity_exists_in_hass(
             hass, "{}.schedule_{}".format(PLATFORM, token)

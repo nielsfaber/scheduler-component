@@ -2,5 +2,5 @@
   "name": "Scheduler component",
   "render_readme": "true",
   "iot_class": ["Local Push"],
-  "domains": ["scheduler"]
+  "domains": ["switch"]
 }
