@@ -1,7 +1,6 @@
 import datetime
 import logging
 import math
-import re
 
 import homeassistant.util.dt as dt_util
 
