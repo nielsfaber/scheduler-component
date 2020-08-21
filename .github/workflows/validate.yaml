@@ -98,6 +98,7 @@ jobs:
           python -m black -v --line-length 75 .
       - name: Commit files
         run: |
+          echo "##[warning] Testing testing 123"
           if [ $(git diff HEAD | wc -l) -gt 30 ]
           then
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
