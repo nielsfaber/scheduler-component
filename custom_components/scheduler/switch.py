@@ -3,7 +3,7 @@ import datetime
 import logging
 import secrets
 
-import homeassistant.util.dt as dt_util
+from homeassistant.util import dt as dt_util
 from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.device_registry import (
@@ -61,20 +61,20 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     device_registry = (
         await hass.helpers.device_registry.async_get_registry()
     )
-    entry = async_entries_for_config_entry(
+    devices = async_entries_for_config_entry(
         device_registry, config_entry.entry_id
     )
 
-    if len(entry) > 1:
+    if len(devices) > 1:
         _LOGGER.error("Found multiple devices for integration")
         return False
-    elif len(entry) == 0:
+    elif not devices:
         _LOGGER.error(
             "Integration needs to be set up before it can be used"
         )
         return False
 
-    device = entry[0]
+    device = devices[0]
 
     entity_registry = (
         await hass.helpers.entity_registry.async_get_registry()
@@ -89,7 +89,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     def async_add_switch(data):
         """Add switch for Scheduler."""
 
-        """Generate a unique token"""
+        # Generate a unique token
         token = secrets.token_hex(3)
         while entity_exists_in_hass(
             hass, "{}.schedule_{}".format(PLATFORM, token)
