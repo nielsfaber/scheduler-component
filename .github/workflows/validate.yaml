@@ -98,7 +98,7 @@ jobs:
           python -m black -v --line-length 75 .
       - name: Commit files
         run: |
-          echo "::warning file=.github/workflows/validate.yaml,line=99,col=10::Testing testing 123"
+          echo "::warning file=custom_components/scheduler/switch.py,line=31,col=2::Testing testing 123"
           if [ $(git diff HEAD | wc -l) -gt 30 ]
           then
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
