@@ -3,7 +3,6 @@ import datetime
 import logging
 import secrets
 
-from homeassistant.util import dt as dt_util
 from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.device_registry import (
@@ -14,6 +13,7 @@ from homeassistant.helpers.entity_registry import async_entries_for_device
 from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.service import async_call_from_config
+from homeassistant.util import dt as dt_util
 
 from .const import (
     DOMAIN,
@@ -283,7 +283,8 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         for service_call in service_calls:
             _LOGGER.debug("executing service %s" % service_call["service"])
             await async_call_from_config(
-                self.coordinator.hass, service_call,
+                self.coordinator.hass,
+                service_call,
             )
 
     async def async_added_to_hass(self):
@@ -313,7 +314,10 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
         data = DataCollection()
         data.import_from_service(
-            {"entries": entries, "actions": actions,}
+            {
+                "entries": entries,
+                "actions": actions,
+            }
         )
         self.dataCollection = data
 
