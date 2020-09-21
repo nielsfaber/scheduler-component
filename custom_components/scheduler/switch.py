@@ -16,6 +16,7 @@ from homeassistant.helpers.service import async_call_from_config
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    VERSION,
     DOMAIN,
     SCHEMA_EDIT,
     SCHEMA_ENTITY,
@@ -153,7 +154,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             "identifiers": {(DOMAIN, device)},
             "name": "Scheduler",
             "model": "Scheduler",
-            "sw_version": "v1",
+            "sw_version": VERSION,
             "manufacturer": "@nielsfaber",
         }
 
@@ -321,6 +322,15 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         )
         self.dataCollection = data
 
+        if self._timer:
+            old_state = self._state
+            self._state = STATE_DISABLED
+            self._timer()
+            self._timer = None
+            self._state = old_state
+
+        await self.async_start_timer()
+        
         await self.async_update_ha_state()
 
     async def async_update(self):

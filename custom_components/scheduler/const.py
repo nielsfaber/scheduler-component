@@ -3,6 +3,8 @@ import voluptuous as vol
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.helpers import config_validation as cv
 
+VERSION = "2.0.1"
+
 DOMAIN = "scheduler"
 ENTITY_ID_FORMAT = DOMAIN + ".{}"
 # STORAGE_KEY = DOMAIN
