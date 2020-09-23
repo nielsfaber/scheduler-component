@@ -221,11 +221,15 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                 self._state = STATE_INVALID
                 await self.async_update_ha_state()
             else:
+                self._state = STATE_WAITING
                 await self.async_start_timer()
 
     async def async_start_timer(self):
         """Search the entries for nearest timepoint and start timer."""
         if self.dataCollection is None:
+            return
+
+        if self._state == STATE_DISABLED:
             return
 
         self.coordinator.update_sun_data()
