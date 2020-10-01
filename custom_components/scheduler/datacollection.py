@@ -7,14 +7,14 @@ import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
-EntryPattern = re.compile("^D([0-9]+)T([0-9SR]+)T?([0-9SR]+)?([A0-9]+)$")
+EntryPattern = re.compile("^D([0-9]+)T([0-9SRDUW]+)T?([0-9SRDUW]+)?([A0-9]+)$")
 
 FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
 SunTimePattern = re.compile(
-    "^(([0-9]{2})([0-9]{2}))?(S[SR])(([0-9]{2})([0-9]{2}))?$"
+    "^(([0-9]{2})([0-9]{2}))?(S[SRDUW])(([0-9]{2})([0-9]{2}))?$"
 )
 
-from .helpers import calculate_next_start_time, is_between_start_time_and_end_time, timedelta_to_string
+from .helpers import calculate_next_start_time, is_between_start_time_and_end_time, timedelta_to_string, parse_iso_timestamp
 
 
 class DataCollection:
@@ -23,6 +23,9 @@ class DataCollection:
     def __init__(self):
         self.entries = []
         self.actions = []
+        self.name = None
+        self.icon = None
+        self.sun_data = None
 
     def import_from_service(self, data: dict):
         for action in data["actions"]:
@@ -30,10 +33,6 @@ class DataCollection:
             service_data = {}
             entity = None
             domain = None
-
-            if "." in service:
-                domain = service.split(".").pop(0)
-                service = service.split(".").pop(1)
 
             if "service_data" in action:
                 service_data = action["service_data"]
@@ -46,13 +45,13 @@ class DataCollection:
 
             if entity is not None:
                 entity_domain = entity.split(".").pop(0)
-                if domain is None:
-                    domain = entity_domain
+                service_domain = service.split(".").pop(0)
+                if entity_domain is None:
+                    entity = "{}.{}".format(service_domain, entity)
+                elif entity_domain == service_domain:
+                    service = service.split(".").pop(1)
 
-                if domain == entity_domain:
-                    entity = entity.split(".").pop(1)
-
-            my_action = {"service": "{}.{}".format(domain, service)}
+            my_action = {"service": service}
 
             if entity is not None:
                 my_action["entity"] = entity
@@ -89,15 +88,18 @@ class DataCollection:
             my_entry["actions"] = entry["actions"]
 
             self.entries.append(my_entry)
+        
+        if "name" in data:
+            self.name = data["name"]
 
-    def get_next_entry(self, sun_data=None):
+    def get_next_entry(self):
         """Find the closest timer from now"""
 
         now = dt_util.now().replace(microsecond=0)
         timestamps = []
 
         for entry in self.entries:
-            next_time = calculate_next_start_time(entry, sun_data)
+            next_time = calculate_next_start_time(entry, self.sun_data)
             timestamps.append(next_time)
 
         closest_timestamp = reduce(
@@ -108,20 +110,22 @@ class DataCollection:
             if timestamps[i] == closest_timestamp:
                 return i
 
-    def has_overlapping_timeslot(self, sun_data=None):
+    def has_overlapping_timeslot(self):
         """Check if there are timeslots which overlapping with now"""
 
         now = dt_util.now().replace(microsecond=0)
 
         for i in range(len(self.entries)):
             entry = self.entries[i]
-            if "end_time" in entry and is_between_start_time_and_end_time(entry, sun_data):
+            if "end_time" in entry and is_between_start_time_and_end_time(entry, self.sun_data):
                 return i, True
 
         return None, False
 
-    def get_timestamp_for_entry(self, entry, sun_data):
+    def get_timestamp_for_entry(self, entry, sun_data=None):
         """Get a timestamp for a specific entry"""
+        if not sun_data:
+            sun_data = self.sun_data
         entry = self.entries[entry]
         return calculate_next_start_time(entry, sun_data)
 
@@ -133,13 +137,22 @@ class DataCollection:
             if len(self.actions) > action:
                 action_data = self.actions[action]
                 call = {"service": action_data["service"]}
-                domain = action_data["service"].split(".").pop(0)
+
                 if "entity" in action_data:
-                    call["entity_id"] = "{}.{}".format(
-                        domain, action_data["entity"]
-                    )
+                    call["entity_id"] = action_data["entity"]
+                
+                if not "." in call["service"]:
+                    domain = call["entity_id"].split(".").pop(0)
+                    call["service"] = "{}.{}".format(domain, call["service"])
+                elif "entity_id" in call and not "." in call["entity_id"]:
+                    domain = call["service"].split(".").pop(0)
+                    call["entity_id"] = "{}.{}".format(domain, call["entity_id"])
+
+                if "entity_id" in action_data: #overwrite the default entity if it is provided
+                    call["entity_id"] = action_data["entity_id"]
+
                 for attr in action_data:
-                    if attr == "service" or attr == "entity":
+                    if attr == "service" or attr == "entity" or attr == "entity_id":
                         continue
                     if not "data" in call:
                         call["data"] = {}
@@ -152,8 +165,7 @@ class DataCollection:
     def import_data(self, data):
         """Import datacollection from restored entity"""
         if not "actions" in data or not "entries" in data:
-            _LOGGER.debug("failed to import data")
-            return
+            return False
 
         self.actions = data["actions"]
 
@@ -168,11 +180,14 @@ class DataCollection:
                     fixed_time_pattern.group(2),
                 )
             elif sun_time_pattern:
-                res["event"] = (
-                    "sunrise"
-                    if sun_time_pattern.group(4) == "SR"
-                    else "sunset"
-                )
+                if sun_time_pattern.group(4) == "SR":
+                    res["event"] = "sunrise"
+                elif sun_time_pattern.group(4) == "SS":
+                    res["event"] = "sunset"
+                elif sun_time_pattern.group(4) == "DW":
+                    res["event"] = "dawn"
+                elif sun_time_pattern.group(4) == "DU":
+                    res["event"] = "dusk"
 
                 if (
                     sun_time_pattern.group(1) is not None
@@ -187,7 +202,7 @@ class DataCollection:
                         sun_time_pattern.group(7),
                     )
             else:
-                _LOGGER.debug("failed to parse time {}".format(time_str))
+                raise Exception("failed to parse time {}".format(time_str))
             return res
                 
 
@@ -214,6 +229,12 @@ class DataCollection:
 
             self.entries.append(my_entry)
 
+        if "friendly_name" in data:
+            self.name = data["friendly_name"]
+
+        if "icon" in data:
+            self.icon = data["icon"]
+
         return True
 
     def export_data(self):
@@ -223,9 +244,14 @@ class DataCollection:
             if "at" in entry_time:
                 time_str = entry_time["at"].replace(":", "")
             elif "event" in entry_time:
-                event_string = (
-                    "SR" if entry_time["event"] == "sunrise" else "SS"
-                )
+                if entry_time["event"] == "sunrise":
+                    event_string = "SR"
+                elif entry_time["event"] == "sunset":
+                    event_string = "SS"
+                elif entry_time["event"] == "dawn":
+                    event_string = "DW"
+                elif entry_time["event"] == "dusk":
+                    event_string = "DU"
 
                 if "+" in entry_time["offset"]:
                     time_str = "{}{}".format(
@@ -238,9 +264,7 @@ class DataCollection:
                         event_string,
                     )
             else:
-                _LOGGER.debug("failed to parse time object")
-                _LOGGER.debug(entry_time)
-                return ""
+                raise Exception("failed to parse time object")
             return time_str
 
 
@@ -263,3 +287,31 @@ class DataCollection:
             output["entries"].append(entry_str)
 
         return output
+
+    def has_sun(self, entry_num=-1):
+        if entry_num == -1:
+            for entry in self.entries:
+                if "time" in entry and "event" in entry["time"]:
+                    return True
+            
+            return False
+        else:
+            entry = self.entries[entry_num]
+            return ("time" in entry and "event" in entry["time"])
+
+    def update_sun_data(self, sun_data, entry=None):
+        if not self.sun_data:
+            self.sun_data = sun_data
+            return False
+        
+        if entry is not None:
+            ts_old = self.get_timestamp_for_entry(entry, self.sun_data)
+            ts_new = self.get_timestamp_for_entry(entry, sun_data)
+
+            delta = (ts_old - ts_new).total_seconds()
+            
+            if abs(delta)>=60 and abs(delta)<=3600: # only reschedule if the drift is more than 1 min, and not hours (next day)
+                return True
+                self.sun_data = sun_data
+        
+        return False

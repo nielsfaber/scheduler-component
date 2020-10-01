@@ -151,6 +151,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         self._timer = None
         self._entry = None
         self._next_trigger = None
+        self._registered_sun_update = False
 
     @property
     def device_info(self) -> dict:
@@ -167,6 +168,8 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     @property
     def name(self) -> str:
         """Return the name of the entity."""
+        if self.dataCollection and self.dataCollection.name:
+            return self.dataCollection.name
         return self._name
 
     @property
@@ -182,6 +185,8 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     @property
     def icon(self):
         """Return icon."""
+        if self.dataCollection and self.dataCollection.icon:
+            return self.dataCollection.icon
         return "mdi:calendar-clock"
 
     @property
@@ -238,22 +243,19 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         if self._state == STATE_DISABLED:
             return
 
-        self.coordinator.update_sun_data()
-        
-        self._entry, has_overlapping_timeslot = self.dataCollection.has_overlapping_timeslot(
-            self.coordinator.sun_data
-        )
+
+        await self.async_update_sun_data()
+
+        self._entry, has_overlapping_timeslot = self.dataCollection.has_overlapping_timeslot()
 
         if has_overlapping_timeslot:
             # execute the action
             await self.async_execute_command()
-        
-        self._entry = self.dataCollection.get_next_entry(
-            self.coordinator.sun_data
-        )
+
+        self._entry = self.dataCollection.get_next_entry()
 
         timestamp = self.dataCollection.get_timestamp_for_entry(
-            self._entry, self.coordinator.sun_data
+            self._entry
         )
         self._next_trigger = dt_util.as_local(timestamp).isoformat()
 
@@ -262,6 +264,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         )
 
         self._state = STATE_WAITING
+
         await self.async_update_ha_state()
         self.async_write_ha_state()
 
@@ -322,7 +325,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             data = DataCollection()
             self._valid = data.import_data(state.attributes)
             self.dataCollection = data
-
+               
         await self.async_start_timer()
 
     async def async_service_remove(self):
@@ -369,3 +372,31 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             await self.coordinator.hass.helpers.entity_registry.async_get_registry()
         )
         entity_registry.async_remove(self.entity_id)
+
+    async def async_update_sun_data(self):
+        if not self.dataCollection or not self.dataCollection.has_sun():
+            return
+        
+        self.dataCollection.update_sun_data(self.coordinator.sun_data)
+
+        if not self._registered_sun_update:
+            await self.async_register_sun_updates()
+
+    async def async_register_sun_updates(self):
+
+        async def async_sun_updated(sun_data):
+            if self._state != STATE_WAITING:
+                return
+            if not self.dataCollection.has_sun(self._entry):
+                return
+            
+            should_update = self.dataCollection.update_sun_data(sun_data, self._entry)
+            if should_update:
+                self._state = STATE_DISABLED
+                self._timer()
+                self._timer = None
+                self._state = STATE_WAITING
+                await self.async_start_timer()
+
+        self.coordinator.add_sun_listener(async_sun_updated)
+        self._registered_sun_update = True

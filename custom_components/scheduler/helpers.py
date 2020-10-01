@@ -53,8 +53,7 @@ def calculate_datetime_from_entry(time_entry: dict, sun_data):
 
     elif "event" in time_entry:
         if not sun_data:
-            _LOGGER.error("no sun data available")
-            return
+            raise Exception("no sun data available")
 
         offset_sign = time_entry["offset"][0]
         offset_string = time_entry["offset"][1:]
@@ -64,21 +63,25 @@ def calculate_datetime_from_entry(time_entry: dict, sun_data):
             hours=time_offset.hour, minutes=time_offset.minute
         )
 
-        time_sun = (
-            sun_data["sunrise"]
-            if time_entry["event"] == "sunrise"
-            else sun_data["sunset"]
-        )
-        time_sun = datetime.datetime.strptime(
-            time_sun[: len(time_sun) - 3] + time_sun[len(time_sun) - 2 :],
-            "%Y-%m-%dT%H:%M:%S%z",
-        )
+        if time_entry["event"] == "sunrise":
+            time_sun = sun_data["sunrise"]
+        elif time_entry["event"] == "sunset":
+            time_sun = sun_data["sunset"]
+        elif time_entry["event"] == "dawn":
+            time_sun = sun_data["dawn"]
+        elif time_entry["event"] == "dusk":
+            time_sun = sun_data["dusk"]
+        
+        time_sun = parse_iso_timestamp(time_sun)
 
         if offset_sign == "+":
             time_obj = time_sun + time_offset
         else:
             time_obj = time_sun - time_offset
 
+    else:
+        raise Exception("cannot parse timestamp")
+    
     return time_obj
 
 
@@ -112,6 +115,9 @@ def is_between_start_time_and_end_time(entry: dict, sun_data):
     start_time = calculate_datetime_from_entry(entry["time"], sun_data)
     end_time = calculate_datetime_from_entry(entry["end_time"], sun_data)
 
+    if end_time < start_time: 
+        end_time = end_time + datetime.timedelta(days=1)
+
     now = dt_util.now().replace(microsecond=0)
 
     # check if time has already passed for today
@@ -137,3 +143,12 @@ def is_between_start_time_and_end_time(entry: dict, sun_data):
         return True
     else:
         return False
+
+
+def parse_iso_timestamp(time_string):
+    time_obj = datetime.datetime.strptime(
+        time_string[: len(time_string) - 3] + time_string[len(time_string) - 2 :],
+        "%Y-%m-%dT%H:%M:%S%z",
+    )
+
+    return time_obj
