@@ -71,7 +71,7 @@ def calculate_datetime_from_entry(time_entry: dict, sun_data):
             time_sun = sun_data["dawn"]
         elif time_entry["event"] == "dusk":
             time_sun = sun_data["dusk"]
-        
+
         time_sun = parse_iso_timestamp(time_sun)
 
         if offset_sign == "+":
@@ -81,7 +81,7 @@ def calculate_datetime_from_entry(time_entry: dict, sun_data):
 
     else:
         raise Exception("cannot parse timestamp")
-    
+
     return time_obj
 
 
@@ -114,7 +114,7 @@ def is_between_start_time_and_end_time(entry: dict, sun_data):
     start_time = calculate_datetime_from_entry(entry["time"], sun_data)
     end_time = calculate_datetime_from_entry(entry["end_time"], sun_data)
 
-    if end_time < start_time: 
+    if end_time < start_time:
         end_time = end_time + datetime.timedelta(days=1)
 
     now = dt_util.now().replace(microsecond=0)
@@ -146,7 +146,8 @@ def is_between_start_time_and_end_time(entry: dict, sun_data):
 
 def parse_iso_timestamp(time_string):
     time_obj = datetime.datetime.strptime(
-        time_string[: len(time_string) - 3] + time_string[len(time_string) - 2 :],
+        time_string[: len(time_string) - 3]
+        + time_string[len(time_string) - 2 :],
         "%Y-%m-%dT%H:%M:%S%z",
     )
 

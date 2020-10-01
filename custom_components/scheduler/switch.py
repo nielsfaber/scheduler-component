@@ -240,10 +240,12 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         if self._state == STATE_DISABLED:
             return
 
-
         await self.async_update_sun_data()
 
-        self._entry, has_overlapping_timeslot = self.dataCollection.has_overlapping_timeslot()
+        (
+            self._entry,
+            has_overlapping_timeslot,
+        ) = self.dataCollection.has_overlapping_timeslot()
 
         if has_overlapping_timeslot:
             # execute the action
@@ -324,7 +326,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             data = DataCollection()
             self._valid = data.import_data(state.attributes)
             self.dataCollection = data
-               
+
         await self.async_start_timer()
 
     async def async_service_remove(self):
@@ -375,21 +377,22 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     async def async_update_sun_data(self):
         if not self.dataCollection or not self.dataCollection.has_sun():
             return
-        
+
         self.dataCollection.update_sun_data(self.coordinator.sun_data)
 
         if not self._registered_sun_update:
             await self.async_register_sun_updates()
 
     async def async_register_sun_updates(self):
-
         async def async_sun_updated(sun_data):
             if self._state != STATE_WAITING:
                 return
             if not self.dataCollection.has_sun(self._entry):
                 return
-            
-            should_update = self.dataCollection.update_sun_data(sun_data, self._entry)
+
+            should_update = self.dataCollection.update_sun_data(
+                sun_data, self._entry
+            )
             if should_update:
                 self._state = STATE_DISABLED
                 self._timer()
