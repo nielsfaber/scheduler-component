@@ -30,8 +30,12 @@ ENTRY_SCHEMA = vol.Any(FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA)
 
 ENTRY_SCHEMA = vol.Schema(
     {
-        vol.Required("time"): vol.Any(FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA),
-        vol.Optional("end_time"): vol.Any(FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA),
+        vol.Required("time"): vol.Any(
+            FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA
+        ),
+        vol.Optional("end_time"): vol.Any(
+            FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA
+        ),
         vol.Optional("days"): vol.All(
             cv.ensure_list,
             vol.Unique(),
@@ -64,7 +68,7 @@ SCHEMA_ADD = vol.Schema(
         vol.Required("actions"): vol.All(
             cv.ensure_list, vol.Length(min=1), [ACTION_SCHEMA]
         ),
-        vol.Optional("name"): cv.string
+        vol.Optional("name"): cv.string,
     }
 )
 

@@ -1,6 +1,6 @@
+import datetime
 import logging
 import re
-import datetime
 from functools import reduce
 
 import homeassistant.util.dt as dt_util
@@ -14,7 +14,11 @@ SunTimePattern = re.compile(
     "^(([0-9]{2})([0-9]{2}))?(S[SR])(([0-9]{2})([0-9]{2}))?$"
 )
 
-from .helpers import calculate_next_start_time, is_between_start_time_and_end_time, timedelta_to_string
+from .helpers import (
+    calculate_next_start_time,
+    is_between_start_time_and_end_time,
+    timedelta_to_string,
+)
 
 
 class DataCollection:
@@ -61,7 +65,7 @@ class DataCollection:
                 my_action[arg] = service_data[arg]
 
             self.actions.append(my_action)
-        
+
         def import_time_input(input):
             res = {}
             if type(input) is datetime.time:
@@ -115,7 +119,9 @@ class DataCollection:
 
         for i in range(len(self.entries)):
             entry = self.entries[i]
-            if "end_time" in entry and is_between_start_time_and_end_time(entry, sun_data):
+            if "end_time" in entry and is_between_start_time_and_end_time(
+                entry, sun_data
+            ):
                 return i, True
 
         return None, False
@@ -189,7 +195,6 @@ class DataCollection:
             else:
                 _LOGGER.debug("failed to parse time {}".format(time_str))
             return res
-                
 
         for entry in data["entries"]:
             res = EntryPattern.match(entry)
@@ -230,11 +235,15 @@ class DataCollection:
                 if "+" in entry_time["offset"]:
                     time_str = "{}{}".format(
                         event_string,
-                        entry_time["offset"].replace("+", "").replace(":", ""),
+                        entry_time["offset"]
+                        .replace("+", "")
+                        .replace(":", ""),
                     )
                 else:
                     time_str = "{}{}".format(
-                        entry_time["offset"].replace("-", "").replace(":", ""),
+                        entry_time["offset"]
+                        .replace("-", "")
+                        .replace(":", ""),
                         event_string,
                     )
             else:
@@ -243,10 +252,13 @@ class DataCollection:
                 return ""
             return time_str
 
-
         for entry in self.entries:
             time_string = export_time(entry["time"])
-            end_time_string = export_time(entry["end_time"]) if "end_time" in entry else None
+            end_time_string = (
+                export_time(entry["end_time"])
+                if "end_time" in entry
+                else None
+            )
 
             days_arr = [str(i) for i in entry["days"]]
             days_string = "".join(days_arr)
