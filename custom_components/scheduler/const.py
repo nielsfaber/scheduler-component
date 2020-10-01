@@ -21,7 +21,9 @@ FIXED_TIME_ENTRY_SCHEMA = cv.time
 
 SUN_TIME_ENTRY_SCHEMA = vol.Schema(
     {
-        vol.Required("event"): vol.In(["sunrise", "sunset", "dawn", "dusk"]),
+        vol.Required("event"): vol.In(
+            ["sunrise", "sunset", "dawn", "dusk"]
+        ),
         vol.Optional("offset"): cv.time_period_str,
     }
 )

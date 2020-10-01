@@ -8,8 +8,9 @@ from homeassistant.core import HomeAssistant, asyncio
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import service
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.event import async_track_state_change
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+
 from .const import DOMAIN, SCHEMA_ADD, SERVICE_ADD, SUN_ENTITY, VERSION
 
 _LOGGER = logging.getLogger(__name__)
@@ -97,11 +98,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         sun_state = self.hass.states.get(SUN_ENTITY)
         if sun_state:
             self.update_sun_data()
-            async_track_state_change(
-                hass,
-                SUN_ENTITY,
-                async_sun_updated
-            )
+            async_track_state_change(hass, SUN_ENTITY, async_sun_updated)
 
     def update_sun_data(self):
         sun_state = self.hass.states.get(SUN_ENTITY)
@@ -110,7 +107,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
                 "sunrise": sun_state.attributes["next_rising"],
                 "sunset": sun_state.attributes["next_setting"],
                 "dawn": sun_state.attributes["next_dawn"],
-                "dusk": sun_state.attributes["next_dusk"]
+                "dusk": sun_state.attributes["next_dusk"],
             }
 
     async def _async_update_data(self):

@@ -7,14 +7,21 @@ import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
-EntryPattern = re.compile("^D([0-9]+)T([0-9SRDUW]+)T?([0-9SRDUW]+)?([A0-9]+)$")
+EntryPattern = re.compile(
+    "^D([0-9]+)T([0-9SRDUW]+)T?([0-9SRDUW]+)?([A0-9]+)$"
+)
 
 FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
 SunTimePattern = re.compile(
     "^(([0-9]{2})([0-9]{2}))?(S[SRDUW])(([0-9]{2})([0-9]{2}))?$"
 )
 
-from .helpers import calculate_next_start_time, is_between_start_time_and_end_time, timedelta_to_string, parse_iso_timestamp
+from .helpers import (
+    calculate_next_start_time,
+    is_between_start_time_and_end_time,
+    parse_iso_timestamp,
+    timedelta_to_string,
+)
 
 
 class DataCollection:
@@ -88,7 +95,7 @@ class DataCollection:
             my_entry["actions"] = entry["actions"]
 
             self.entries.append(my_entry)
-        
+
         if "name" in data:
             self.name = data["name"]
 
@@ -117,7 +124,9 @@ class DataCollection:
 
         for i in range(len(self.entries)):
             entry = self.entries[i]
-            if "end_time" in entry and is_between_start_time_and_end_time(entry, self.sun_data):
+            if "end_time" in entry and is_between_start_time_and_end_time(
+                entry, self.sun_data
+            ):
                 return i, True
 
         return None, False
@@ -140,19 +149,29 @@ class DataCollection:
 
                 if "entity" in action_data:
                     call["entity_id"] = action_data["entity"]
-                
+
                 if not "." in call["service"]:
                     domain = call["entity_id"].split(".").pop(0)
-                    call["service"] = "{}.{}".format(domain, call["service"])
+                    call["service"] = "{}.{}".format(
+                        domain, call["service"]
+                    )
                 elif "entity_id" in call and not "." in call["entity_id"]:
                     domain = call["service"].split(".").pop(0)
-                    call["entity_id"] = "{}.{}".format(domain, call["entity_id"])
+                    call["entity_id"] = "{}.{}".format(
+                        domain, call["entity_id"]
+                    )
 
-                if "entity_id" in action_data: #overwrite the default entity if it is provided
+                if (
+                    "entity_id" in action_data
+                ):  # overwrite the default entity if it is provided
                     call["entity_id"] = action_data["entity_id"]
 
                 for attr in action_data:
-                    if attr == "service" or attr == "entity" or attr == "entity_id":
+                    if (
+                        attr == "service"
+                        or attr == "entity"
+                        or attr == "entity_id"
+                    ):
                         continue
                     if not "data" in call:
                         call["data"] = {}
@@ -299,25 +318,27 @@ class DataCollection:
             for entry in self.entries:
                 if "time" in entry and "event" in entry["time"]:
                     return True
-            
+
             return False
         else:
             entry = self.entries[entry_num]
-            return ("time" in entry and "event" in entry["time"])
+            return "time" in entry and "event" in entry["time"]
 
     def update_sun_data(self, sun_data, entry=None):
         if not self.sun_data:
             self.sun_data = sun_data
             return False
-        
+
         if entry is not None:
             ts_old = self.get_timestamp_for_entry(entry, self.sun_data)
             ts_new = self.get_timestamp_for_entry(entry, sun_data)
 
             delta = (ts_old - ts_new).total_seconds()
-            
-            if abs(delta)>=60 and abs(delta)<=3600: # only reschedule if the drift is more than 1 min, and not hours (next day)
+
+            if (
+                abs(delta) >= 60 and abs(delta) <= 3600
+            ):  # only reschedule if the drift is more than 1 min, and not hours (next day)
                 return True
                 self.sun_data = sun_data
-        
+
         return False
