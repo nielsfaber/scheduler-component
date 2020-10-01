@@ -11,7 +11,7 @@ EntryPattern = re.compile("^D([0-9]+)T([0-9SRDUW]+)T?([0-9SRDUW]+)?([A0-9]+)$")
 
 FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
 SunTimePattern = re.compile(
-    "^(([0-9]{2})([0-9]{2}))?(S[SRDUW])(([0-9]{2})([0-9]{2}))?$"
+    "^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$"
 )
 
 from .helpers import calculate_next_start_time, is_between_start_time_and_end_time, timedelta_to_string, parse_iso_timestamp
