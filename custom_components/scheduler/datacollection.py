@@ -12,9 +12,7 @@ EntryPattern = re.compile(
 )
 
 FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
-SunTimePattern = re.compile(
-    "^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$"
-)
+SunTimePattern = re.compile("^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$")
 
 from .helpers import (
     calculate_next_start_time,
