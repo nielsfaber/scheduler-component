@@ -1,19 +1,20 @@
 import logging
 import re
+import datetime
 from functools import reduce
 
 import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
-EntryPattern = re.compile("^D([0-9]+)T([0-9SR]+)([A0-9]+)$")
+EntryPattern = re.compile("^D([0-9]+)T([0-9SR]+)T?([0-9SR]+)?([A0-9]+)$")
 
 FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
 SunTimePattern = re.compile(
     "^(([0-9]{2})([0-9]{2}))?(S[SR])(([0-9]{2})([0-9]{2}))?$"
 )
 
-from .helpers import calculate_datetime, timedelta_to_string
+from .helpers import calculate_next_start_time, is_between_start_time_and_end_time, timedelta_to_string
 
 
 class DataCollection:
@@ -60,14 +61,24 @@ class DataCollection:
                 my_action[arg] = service_data[arg]
 
             self.actions.append(my_action)
+        
+        def import_time_input(input):
+            res = {}
+            if type(input) is datetime.time:
+                res["at"] = input.strftime("%H:%M")
+            else:
+                res["event"] = input["event"]
+                res["offset"] = timedelta_to_string(input["offset"])
+            return res
 
         for entry in data["entries"]:
             my_entry = {}
+
             if "time" in entry:
-                my_entry["time"] = entry["time"].strftime("%H:%M")
-            else:
-                my_entry["event"] = entry["event"]
-                my_entry["offset"] = timedelta_to_string(entry["offset"])
+                my_entry["time"] = import_time_input(entry["time"])
+
+            if "end_time" in entry:
+                my_entry["end_time"] = import_time_input(entry["end_time"])
 
             if "days" in entry:
                 my_entry["days"] = entry["days"]
@@ -76,6 +87,7 @@ class DataCollection:
                 my_entry["days"] = [0]
 
             my_entry["actions"] = entry["actions"]
+
             self.entries.append(my_entry)
 
     def get_next_entry(self, sun_data=None):
@@ -85,20 +97,33 @@ class DataCollection:
         timestamps = []
 
         for entry in self.entries:
-            next_time = calculate_datetime(entry, sun_data)
+            next_time = calculate_next_start_time(entry, sun_data)
             timestamps.append(next_time)
 
         closest_timestamp = reduce(
             lambda x, y: x if (x - now) < (y - now) else y, timestamps
         )
+
         for i in range(len(timestamps)):
             if timestamps[i] == closest_timestamp:
                 return i
 
+    def has_overlapping_timeslot(self, sun_data=None):
+        """Check if there are timeslots which overlapping with now"""
+
+        now = dt_util.now().replace(microsecond=0)
+
+        for i in range(len(self.entries)):
+            entry = self.entries[i]
+            if "end_time" in entry and is_between_start_time_and_end_time(entry, sun_data):
+                return i, True
+
+        return None, False
+
     def get_timestamp_for_entry(self, entry, sun_data):
         """Get a timestamp for a specific entry"""
         entry = self.entries[entry]
-        return calculate_datetime(entry, sun_data)
+        return calculate_next_start_time(entry, sun_data)
 
     def get_service_calls_for_entry(self, entry):
         """Get the service call (action) for a specific entry"""
@@ -132,25 +157,18 @@ class DataCollection:
 
         self.actions = data["actions"]
 
-        for entry in data["entries"]:
-            res = EntryPattern.match(entry)
-
-            if not res:
-                return False
-
-            my_entry = {}
-
-            time_str = res.group(2)
+        def import_time_input(time_str):
             fixed_time_pattern = FixedTimePattern.match(time_str)
             sun_time_pattern = SunTimePattern.match(time_str)
+            res = {}
 
             if fixed_time_pattern:
-                my_entry["time"] = "{}:{}".format(
+                res["at"] = "{}:{}".format(
                     fixed_time_pattern.group(1),
                     fixed_time_pattern.group(2),
                 )
             elif sun_time_pattern:
-                my_entry["event"] = (
+                res["event"] = (
                     "sunrise"
                     if sun_time_pattern.group(4) == "SR"
                     else "sunset"
@@ -159,21 +177,37 @@ class DataCollection:
                 if (
                     sun_time_pattern.group(1) is not None
                 ):  # negative offset
-                    my_entry["offset"] = "-{}:{}".format(
+                    res["offset"] = "-{}:{}".format(
                         sun_time_pattern.group(2),
                         sun_time_pattern.group(3),
                     )
                 else:
-                    my_entry["offset"] = "+{}:{}".format(
+                    res["offset"] = "+{}:{}".format(
                         sun_time_pattern.group(6),
                         sun_time_pattern.group(7),
                     )
+            else:
+                _LOGGER.debug("failed to parse time {}".format(time_str))
+            return res
+                
+
+        for entry in data["entries"]:
+            res = EntryPattern.match(entry)
+
+            if not res:
+                return False
+
+            my_entry = {}
+
+            my_entry["time"] = import_time_input(str(res.group(2)))
+            if res.group(3):
+                my_entry["end_time"] = import_time_input(str(res.group(3)))
 
             days_list = list(res.group(1))
             days_list = [int(i) for i in days_list]
             my_entry["days"] = days_list
 
-            action_list = res.group(3).split("A")
+            action_list = res.group(4).split("A")
             action_list = list(filter(None, action_list))
             action_list = [int(i) for i in action_list]
             my_entry["actions"] = action_list
@@ -185,32 +219,47 @@ class DataCollection:
     def export_data(self):
         output = {"entries": [], "actions": self.actions}
 
-        for entry in self.entries:
-            if "time" in entry:
-                time = entry["time"].replace(":", "")
-            else:
+        def export_time(entry_time):
+            if "at" in entry_time:
+                time_str = entry_time["at"].replace(":", "")
+            elif "event" in entry_time:
                 event_string = (
-                    "SR" if entry["event"] == "sunrise" else "SS"
+                    "SR" if entry_time["event"] == "sunrise" else "SS"
                 )
 
-                if "+" in entry["offset"]:
-                    time = "{}{}".format(
+                if "+" in entry_time["offset"]:
+                    time_str = "{}{}".format(
                         event_string,
-                        entry["offset"].replace("+", "").replace(":", ""),
+                        entry_time["offset"].replace("+", "").replace(":", ""),
                     )
                 else:
-                    time = "{}{}".format(
-                        entry["offset"].replace("-", "").replace(":", ""),
+                    time_str = "{}{}".format(
+                        entry_time["offset"].replace("-", "").replace(":", ""),
                         event_string,
                     )
+            else:
+                _LOGGER.debug("failed to parse time object")
+                _LOGGER.debug(entry_time)
+                return ""
+            return time_str
+
+
+        for entry in self.entries:
+            time_string = export_time(entry["time"])
+            end_time_string = export_time(entry["end_time"]) if "end_time" in entry else None
 
             days_arr = [str(i) for i in entry["days"]]
             days_string = "".join(days_arr)
             action_arr = [str(i) for i in entry["actions"]]
             action_string = "A".join(action_arr)
 
-            output["entries"].append(
-                "D{}T{}A{}".format(days_string, time, action_string)
-            )
+            entry_str = ""
+            entry_str += "D{}".format(days_string)
+            entry_str += "T{}".format(time_string)
+            if end_time_string:
+                entry_str += "T{}".format(end_time_string)
+            entry_str += "A{}".format(action_string)
+
+            output["entries"].append(entry_str)
 
         return output

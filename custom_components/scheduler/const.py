@@ -17,28 +17,21 @@ SERVICE_REMOVE = "remove"
 SERVICE_EDIT = "edit"
 SERVICE_ADD = "add"
 
-FIXED_TIME_ENTRY_SCHEMA = vol.Schema(
-    {
-        vol.Required("time"): cv.time,
-        vol.Optional("days"): vol.All(
-            cv.ensure_list,
-            vol.Unique(),
-            vol.Length(min=1),
-            [vol.All(int, vol.Range(min=1, max=7))],
-        ),
-        vol.Required("actions"): vol.All(
-            cv.ensure_list,
-            vol.Unique(),
-            vol.Length(min=1),
-            [vol.All(int, vol.Range(min=0))],
-        ),
-    }
-)
+FIXED_TIME_ENTRY_SCHEMA = cv.time
 
 SUN_TIME_ENTRY_SCHEMA = vol.Schema(
     {
         vol.Required("event"): vol.In(["sunrise", "sunset"]),
         vol.Optional("offset"): cv.time_period_str,
+    }
+)
+
+ENTRY_SCHEMA = vol.Any(FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA)
+
+ENTRY_SCHEMA = vol.Schema(
+    {
+        vol.Required("time"): vol.Any(FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA),
+        vol.Optional("end_time"): vol.Any(FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA),
         vol.Optional("days"): vol.All(
             cv.ensure_list,
             vol.Unique(),
@@ -54,7 +47,6 @@ SUN_TIME_ENTRY_SCHEMA = vol.Schema(
     }
 )
 
-ENTRY_SCHEMA = vol.Any(FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA)
 
 ACTION_SCHEMA = vol.Schema(
     {
@@ -72,6 +64,7 @@ SCHEMA_ADD = vol.Schema(
         vol.Required("actions"): vol.All(
             cv.ensure_list, vol.Length(min=1), [ACTION_SCHEMA]
         ),
+        vol.Optional("name"): cv.string
     }
 )
 
