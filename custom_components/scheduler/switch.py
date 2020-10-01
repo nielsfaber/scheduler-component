@@ -14,6 +14,12 @@ from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.service import async_call_from_config
 from homeassistant.util import dt as dt_util
+from homeassistant.helpers.trigger import async_initialize_triggers
+from typing import cast
+
+from homeassistant.core import (
+    HomeAssistant
+)
 
 from .const import (
     VERSION,
@@ -242,20 +248,48 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         )
         self._next_trigger = dt_util.as_local(timestamp).isoformat()
 
-        self._timer = async_track_point_in_utc_time(
-            self.coordinator.hass, self.async_timer_finished, timestamp
-        )
+        def log_cb(level, msg):
+            _LOGGER.debug("{} {} {}".format(level, msg, self._name))
+
+        
+        _trigger_config = [
+            {"platform": "time", "at": ["02-10-2020 08:32:00"]}
+            ]
+    
+        _LOGGER.debug(dt_util.as_local(timestamp))
+        _LOGGER.debug(datetime.time(hour=9,minute=0))
+
+        _LOGGER.debug(_trigger_config)
+
+        await async_initialize_triggers(
+                    cast(HomeAssistant, self.hass),
+                    _trigger_config,
+                    self.async_timer_finished,
+                    DOMAIN,
+                    self._name,
+                    log_cb,
+                    False,
+                )
+
+        # self._timer = async_track_point_in_utc_time(
+        #     self.coordinator.hass, self.async_timer_finished, timestamp
+        # )
         self._state = STATE_WAITING
         await self.async_update_ha_state()
+        self.async_write_ha_state()
 
-    async def async_timer_finished(self, time):
+    async def async_timer_finished(self, run_variables, context=None, skip_condition=False):
         """Callback for timer finished."""
+
+        _LOGGER.debug("trigger")
 
         self._timer = None
         if self._state != STATE_WAITING:
             return
 
         _LOGGER.debug("timer for %s is triggered" % self.entity_id)
+        return
+
         self._state = STATE_TRIGGERED
         self._next_trigger = None
         await self.async_update_ha_state()
