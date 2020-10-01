@@ -85,7 +85,6 @@ def calculate_datetime_from_entry(time_entry: dict, sun_data):
     return time_obj
 
 
-
 def calculate_next_start_time(entry: dict, sun_data):
     """Get datetime object with closest occurance based on time + weekdays input"""
     nexttime = calculate_datetime_from_entry(entry["time"], sun_data)
@@ -111,7 +110,7 @@ def calculate_next_start_time(entry: dict, sun_data):
 
 def is_between_start_time_and_end_time(entry: dict, sun_data):
     """Get datetime object with closest occurance based on time + weekdays input"""
-    
+
     start_time = calculate_datetime_from_entry(entry["time"], sun_data)
     end_time = calculate_datetime_from_entry(entry["end_time"], sun_data)
 
@@ -136,8 +135,8 @@ def is_between_start_time_and_end_time(entry: dict, sun_data):
             end_time = end_time + datetime.timedelta(days=1)
             weekday = dt_util.as_local(start_time).isoweekday()
 
-    delta_start = (start_time-now).total_seconds()
-    delta_end = (end_time-now).total_seconds()
+    delta_start = (start_time - now).total_seconds()
+    delta_end = (end_time - now).total_seconds()
 
     if delta_start < 0 and delta_end > 0:
         return True

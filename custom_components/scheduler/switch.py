@@ -2,8 +2,10 @@
 import datetime
 import logging
 import secrets
+from typing import cast
 
 from homeassistant.components.switch import DOMAIN as PLATFORM
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.device_registry import (
     async_entries_for_config_entry,
@@ -13,16 +15,10 @@ from homeassistant.helpers.entity_registry import async_entries_for_device
 from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.service import async_call_from_config
-from homeassistant.util import dt as dt_util
 from homeassistant.helpers.trigger import async_initialize_triggers
-from typing import cast
-
-from homeassistant.core import (
-    HomeAssistant
-)
+from homeassistant.util import dt as dt_util
 
 from .const import (
-    VERSION,
     DOMAIN,
     SCHEMA_EDIT,
     SCHEMA_ENTITY,
@@ -35,6 +31,7 @@ from .const import (
     STATE_INVALID,
     STATE_TRIGGERED,
     STATE_WAITING,
+    VERSION,
 )
 from .datacollection import DataCollection
 
@@ -268,7 +265,9 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         await self.async_update_ha_state()
         self.async_write_ha_state()
 
-    async def async_timer_finished(self, run_variables, context=None, skip_condition=False):
+    async def async_timer_finished(
+        self, run_variables, context=None, skip_condition=False
+    ):
         """Callback for timer finished."""
 
         self._timer = None
@@ -355,7 +354,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             self._state = old_state
 
         await self.async_start_timer()
-        
+
         await self.async_update_ha_state()
 
     async def async_update(self):

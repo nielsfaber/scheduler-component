@@ -1,6 +1,6 @@
+import datetime
 import logging
 import re
-import datetime
 from functools import reduce
 
 import homeassistant.util.dt as dt_util
@@ -60,7 +60,7 @@ class DataCollection:
                 my_action[arg] = service_data[arg]
 
             self.actions.append(my_action)
-        
+
         def import_time_input(input):
             res = {}
             if type(input) is datetime.time:
@@ -204,7 +204,6 @@ class DataCollection:
             else:
                 raise Exception("failed to parse time {}".format(time_str))
             return res
-                
 
         for entry in data["entries"]:
             res = EntryPattern.match(entry)
@@ -256,21 +255,28 @@ class DataCollection:
                 if "+" in entry_time["offset"]:
                     time_str = "{}{}".format(
                         event_string,
-                        entry_time["offset"].replace("+", "").replace(":", ""),
+                        entry_time["offset"]
+                        .replace("+", "")
+                        .replace(":", ""),
                     )
                 else:
                     time_str = "{}{}".format(
-                        entry_time["offset"].replace("-", "").replace(":", ""),
+                        entry_time["offset"]
+                        .replace("-", "")
+                        .replace(":", ""),
                         event_string,
                     )
             else:
                 raise Exception("failed to parse time object")
             return time_str
 
-
         for entry in self.entries:
             time_string = export_time(entry["time"])
-            end_time_string = export_time(entry["end_time"]) if "end_time" in entry else None
+            end_time_string = (
+                export_time(entry["end_time"])
+                if "end_time" in entry
+                else None
+            )
 
             days_arr = [str(i) for i in entry["days"]]
             days_string = "".join(days_arr)
