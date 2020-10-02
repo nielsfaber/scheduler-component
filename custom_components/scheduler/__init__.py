@@ -20,6 +20,10 @@ from .const import (
     WORKDAY_ENTITY,
 )
 
+from .helpers import (
+    convert_days_to_numbers
+)
+
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=30)
 
@@ -128,7 +132,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             return
         
         workday_data = {
-            "workdays": workday_state.attributes["workdays"],
+            "workdays": convert_days_to_numbers(workday_state.attributes["workdays"]),
             "today_is_workday": (workday_state.state == "on")
         }
         

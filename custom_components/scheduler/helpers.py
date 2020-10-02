@@ -83,23 +83,33 @@ def calculate_datetime_from_entry(time_entry: dict, sun_data):
 
     return time_obj
 
-def day_string_to_number(day_string):
-    if day_string == "mon":
-        return 1
-    elif day_string == "tue":
-        return 2
-    elif day_string == "wed":
-        return 3
-    elif day_string == "thu":
-        return 4
-    elif day_string == "fri":
-        return 5
-    elif day_string == "sat":
-        return 6
-    elif day_string == "sun":
-        return 7
-    else:
-        raise Exception("cannot read workday data")
+def convert_days_to_numbers(day_arr):
+    def day_string_to_number(day_string):
+        if day_string == "mon":
+            return 1
+        elif day_string == "tue":
+            return 2
+        elif day_string == "wed":
+            return 3
+        elif day_string == "thu":
+            return 4
+        elif day_string == "fri":
+            return 5
+        elif day_string == "sat":
+            return 6
+        elif day_string == "sun":
+            return 7
+        else:
+            raise Exception("cannot read workday data")
+
+    day_list = []
+    for day_str in day_arr:
+        num = day_string_to_number(day_str)
+        day_list.append(num)
+
+    day_list.sort()
+    return day_list
+
 
 def is_allowed_day(date_obj: datetime.datetime, day_entry: dict, workday_data):
     day = dt_util.as_local(date_obj).isoweekday()
@@ -109,12 +119,10 @@ def is_allowed_day(date_obj: datetime.datetime, day_entry: dict, workday_data):
 
     if workday_data:
         # update the list of workdays and weekend days with data from workday sensor
-        workday_list = []
+        workday_list = workday_data["workdays"]
         weekend_list = [1,2,3,4,5,6,7]
-        for day_str in workday_data["workdays"]:
-            num = day_string_to_number(day_str)
-            workday_list.append(num)
-            weekend_list = list(filter(lambda x : x != num, weekend_list))
+        for day in workday_list:
+            weekend_list = list(filter(lambda x : x != day, weekend_list))
         
         today = dt_util.as_local(date_obj).date()
         date_obj_date = dt_util.now().replace(microsecond=0).date()
