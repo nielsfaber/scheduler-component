@@ -7,11 +7,38 @@ import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
-EntryPattern = re.compile("^([0-9]+)?D([0-9]+)?T([0-9SRDUW]+)T?([0-9SRDUW]+)?([A0-9]+)$")
+EntryPattern = re.compile(
+    "^([0-9]+)?D([0-9]+)?T([0-9SRDUW]+)T?([0-9SRDUW]+)?A([A0-9]+)+(C([C0-9]+))?$"
+)
 
 FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
-SunTimePattern = re.compile("^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$")
+SunTimePattern = re.compile(
+    "^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$"
+)
 
+from .const import (
+    CONDITION_TYPE_AND,
+    CONDITION_TYPE_OR,
+    DAY_TYPE_CUSTOM,
+    DAY_TYPE_DAILY,
+    DAY_TYPE_WEEKEND,
+    DAY_TYPE_WORKDAY,
+    ENTRY_PATTERN_DAILY,
+    ENTRY_PATTERN_DAWN,
+    ENTRY_PATTERN_DUSK,
+    ENTRY_PATTERN_SUNRISE,
+    ENTRY_PATTERN_SUNSET,
+    ENTRY_PATTERN_WEEKEND,
+    ENTRY_PATTERN_WORKDAY,
+    MATCH_TYPE_ABOVE,
+    MATCH_TYPE_BELOW,
+    MATCH_TYPE_EQUAL,
+    MATCH_TYPE_UNEQUAL,
+    TIME_EVENT_DAWN,
+    TIME_EVENT_DUSK,
+    TIME_EVENT_SUNRISE,
+    TIME_EVENT_SUNSET,
+)
 from .helpers import (
     calculate_next_start_time,
     is_between_start_time_and_end_time,
@@ -19,26 +46,6 @@ from .helpers import (
     timedelta_to_string,
 )
 
-from .const import (
-    TIME_EVENT_SUNRISE,
-    TIME_EVENT_SUNSET,
-    TIME_EVENT_DAWN,
-    TIME_EVENT_DUSK,
-
-    ENTRY_PATTERN_SUNRISE,
-    ENTRY_PATTERN_SUNSET,
-    ENTRY_PATTERN_DAWN,
-    ENTRY_PATTERN_DUSK,
-
-    DAY_TYPE_DAILY,
-    DAY_TYPE_WORKDAY,
-    DAY_TYPE_WEEKEND,
-    DAY_TYPE_CUSTOM,
-
-    ENTRY_PATTERN_DAILY,
-    ENTRY_PATTERN_WORKDAY,
-    ENTRY_PATTERN_WEEKEND,
-)
 
 class DataCollection:
     """Defines a base schedule entity."""
@@ -46,6 +53,7 @@ class DataCollection:
     def __init__(self):
         self.entries = []
         self.actions = []
+        self.conditions = []
         self.name = None
         self.icon = None
         self.sun_data = None
@@ -97,8 +105,6 @@ class DataCollection:
         for entry in data["entries"]:
             my_entry = {}
 
-            _LOGGER.debug(entry)
-
             if "time" in entry:
                 my_entry["time"] = import_time_input(entry["time"])
 
@@ -114,7 +120,7 @@ class DataCollection:
                         my_entry["days"] = {"type": DAY_TYPE_DAILY}
                     else:
                         days_list = entry["days"]["list"]
-                        if len(days_list)==1 and days_list[0]==0:
+                        if len(days_list) == 1 and days_list[0] == 0:
                             my_entry["days"] = {"type": DAY_TYPE_DAILY}
                         else:
                             days_list.sort()
@@ -124,12 +130,16 @@ class DataCollection:
 
             my_entry["actions"] = entry["actions"]
 
+            if "conditions" in entry:
+                my_entry["conditions"] = entry["conditions"]
 
-            _LOGGER.debug(my_entry)
             self.entries.append(my_entry)
 
         if "name" in data:
             self.name = data["name"]
+
+        if "conditions" in data:
+            self.conditions = data["conditions"]
 
     def get_next_entry(self):
         """Find the closest timer from now"""
@@ -138,7 +148,9 @@ class DataCollection:
         timestamps = []
 
         for entry in self.entries:
-            next_time = calculate_next_start_time(entry, self.sun_data, self.workday_data)
+            next_time = calculate_next_start_time(
+                entry, self.sun_data, self.workday_data
+            )
             timestamps.append(next_time)
 
         closest_timestamp = reduce(
@@ -260,6 +272,7 @@ class DataCollection:
             time_str = res.group(3)
             end_time_str = res.group(4)
             action_list = res.group(5).split("A")
+            condition_list = res.group(7)
 
             my_entry = {}
 
@@ -278,7 +291,9 @@ class DataCollection:
             elif days_list:
                 days_list = list(res.group(2))
                 days_list = [int(i) for i in days_list]
-                if len(days_list)==1 and days_list[0] == 0: #for backwards compatibility
+                if (
+                    len(days_list) == 1 and days_list[0] == 0
+                ):  # for backwards compatibility
                     my_entry["days"]["type"] = DAY_TYPE_DAILY
                 else:
                     my_entry["days"]["type"] = DAY_TYPE_CUSTOM
@@ -294,6 +309,20 @@ class DataCollection:
             action_list = [int(i) for i in action_list]
             my_entry["actions"] = action_list
 
+            # parse condition
+            if condition_list:
+                my_entry["conditions"] = {"type": CONDITION_TYPE_OR, "list": []}
+                conditions_or = condition_list.split("C")
+                for group in conditions_or:
+                    if len(group) > 1:
+                        my_entry["conditions"]["type"] = CONDITION_TYPE_AND
+                        conditions_list = [int(i) for i in group]
+                        my_entry["conditions"]["list"].extend(conditions_list)
+                if my_entry["conditions"]["type"] == CONDITION_TYPE_OR:
+                    for group in conditions_or:
+                        conditions_list = [int(i) for i in group]
+                        my_entry["conditions"]["list"].extend(conditions_list)
+
             self.entries.append(my_entry)
 
         if "friendly_name" in data:
@@ -301,6 +330,9 @@ class DataCollection:
 
         if "icon" in data:
             self.icon = data["icon"]
+
+        if "conditions" in data:
+            self.conditions = data["conditions"]
 
         return True
 
@@ -339,11 +371,11 @@ class DataCollection:
             entry_str = ""
 
             # parse days
-            if entry["days"]["type"]==DAY_TYPE_DAILY:
+            if entry["days"]["type"] == DAY_TYPE_DAILY:
                 entry_str += "{}D".format(ENTRY_PATTERN_DAILY)
-            elif entry["days"]["type"]==DAY_TYPE_WORKDAY:
+            elif entry["days"]["type"] == DAY_TYPE_WORKDAY:
                 entry_str += "{}D".format(ENTRY_PATTERN_WORKDAY)
-            elif entry["days"]["type"]==DAY_TYPE_WEEKEND:
+            elif entry["days"]["type"] == DAY_TYPE_WEEKEND:
                 entry_str += "{}D".format(ENTRY_PATTERN_WEEKEND)
             else:
                 days_arr = [str(i) for i in entry["days"]["list"]]
@@ -362,7 +394,19 @@ class DataCollection:
             action_string = "A".join(action_arr)
             entry_str += "A{}".format(action_string)
 
+            # parse conditions
+            if "conditions" in entry:
+                condition_arr = [str(i) for i in entry["conditions"]["list"]]
+                if entry["conditions"]["type"] == CONDITION_TYPE_AND:
+                    condition_string = "".join(condition_arr)
+                else:
+                    condition_string = "C".join(condition_arr)
+                entry_str += "C{}".format(condition_string)
+
             output["entries"].append(entry_str)
+
+        if self.conditions:
+            output["conditions"] = self.conditions
 
         return output
 
@@ -383,7 +427,9 @@ class DataCollection:
             return False
 
         if entry is not None:
-            ts_old = self.get_timestamp_for_entry(entry, self.sun_data, self.workday_data)
+            ts_old = self.get_timestamp_for_entry(
+                entry, self.sun_data, self.workday_data
+            )
             ts_new = self.get_timestamp_for_entry(entry, sun_data, self.workday_data)
 
             delta = (ts_old - ts_new).total_seconds()
@@ -420,13 +466,78 @@ class DataCollection:
             return False
 
         if entry is not None:
-            ts_old = self.get_timestamp_for_entry(entry, self.sun_data, self.workday_data)
+            ts_old = self.get_timestamp_for_entry(
+                entry, self.sun_data, self.workday_data
+            )
             ts_new = self.get_timestamp_for_entry(entry, self.sun_data, workday_data)
 
             delta = (ts_old - ts_new).total_seconds()
 
-            if abs(delta) >= 3600: # item needs to be rescheduled
+            if abs(delta) >= 3600:  # item needs to be rescheduled
                 return True
                 self.workday_data = workday_data
 
         return False
+
+    def get_condition_entities_for_entry(self, entry):
+        """Get the conditions for a specific entry"""
+        entity_list = []
+        if not self.conditions or not "conditions" in self.entries[entry]:
+            return None
+
+        for entry_condition in self.entries[entry]["conditions"]["list"]:
+            entity = self.conditions[entry_condition]["entity"]
+            entity_list.append(entity)
+
+        return entity_list
+
+    def validate_conditions_for_entry(self, entry, states):
+        """Validate the set of conditions against the results"""
+        if not self.conditions or not "conditions" in self.entries[entry]:
+            return None
+
+        results = []
+        for item in self.entries[entry]["conditions"]["list"]:
+            condition_item = self.conditions[item]
+
+            required = condition_item["state"]
+            actual = (
+                states[condition_item["entity"]]
+                if condition_item["entity"] in states
+                else None
+            )
+
+            if isinstance(required, int):
+                try:
+                    actual = int(float(actual))
+                except:
+                    pass
+            elif isinstance(required, float):
+                try:
+                    actual = float(actual)
+                except:
+                    pass
+            elif isinstance(required, str):
+                actual = str(actual)
+
+            if actual == None or actual == "unavailable" or actual == "unknown":
+                result = False
+            elif condition_item["match_type"] == MATCH_TYPE_EQUAL:
+                result = actual == required
+            elif condition_item["match_type"] == MATCH_TYPE_UNEQUAL:
+                result = actual != required
+            elif condition_item["match_type"] == MATCH_TYPE_BELOW:
+                result = actual < required
+            elif condition_item["match_type"] == MATCH_TYPE_ABOVE:
+                result = actual > required
+            else:
+                result = False
+
+            # _LOGGER.debug("validating condition for {}: required={}, actual={}, match_type={}, result={}".format(condition_item["entity"], required,actual,condition_item["match_type"], result))
+            results.append(result)
+
+        condition_type = self.entries[entry]["conditions"]["type"]
+        if condition_type == CONDITION_TYPE_AND:
+            return all(results)
+        else:
+            return any(results)

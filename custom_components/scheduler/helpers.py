@@ -6,12 +6,7 @@ import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
-from .const import (
-    DAY_TYPE_DAILY,
-    DAY_TYPE_WORKDAY,
-    DAY_TYPE_WEEKEND,
-    DAY_TYPE_CUSTOM,
-)
+from .const import DAY_TYPE_CUSTOM, DAY_TYPE_DAILY, DAY_TYPE_WEEKEND, DAY_TYPE_WORKDAY
 
 
 def entity_exists_in_hass(hass, entity_id):
@@ -83,6 +78,7 @@ def calculate_datetime_from_entry(time_entry: dict, sun_data):
 
     return time_obj
 
+
 def convert_days_to_numbers(day_arr):
     def day_string_to_number(day_string):
         if day_string == "mon":
@@ -113,16 +109,16 @@ def convert_days_to_numbers(day_arr):
 
 def is_allowed_day(date_obj: datetime.datetime, day_entry: dict, workday_data):
     day = dt_util.as_local(date_obj).isoweekday()
-    workday_list = [1,2,3,4,5]
-    weekend_list = [6,7]
+    workday_list = [1, 2, 3, 4, 5]
+    weekend_list = [6, 7]
     day_type = day_entry["type"]
 
     if workday_data:
         # update the list of workdays and weekend days with data from workday sensor
         workday_list = workday_data["workdays"]
-        weekend_list = [1,2,3,4,5,6,7]
+        weekend_list = [1, 2, 3, 4, 5, 6, 7]
         for val in workday_list:
-            weekend_list = list(filter(lambda x : x != val, weekend_list))
+            weekend_list = list(filter(lambda x: x != val, weekend_list))
 
         today = dt_util.as_local(date_obj).date()
         date_obj_date = dt_util.now().replace(microsecond=0).date()
@@ -132,17 +128,17 @@ def is_allowed_day(date_obj: datetime.datetime, day_entry: dict, workday_data):
             if day_type == DAY_TYPE_WORKDAY:
                 return workday_data["today_is_workday"]
             elif day_type == DAY_TYPE_WEEKEND:
-                return (not workday_data["today_is_workday"])
-    
+                return not workday_data["today_is_workday"]
+
     if day_type == DAY_TYPE_DAILY:
         return True
     elif day_type == DAY_TYPE_WORKDAY:
-        return (day in workday_list)
+        return day in workday_list
     elif day_type == DAY_TYPE_WEEKEND:
-        return (day in weekend_list)
+        return day in weekend_list
     elif day_type == DAY_TYPE_CUSTOM:
         day_list = day_entry["list"]
-        return (day in day_list)
+        return day in day_list
 
 
 def calculate_next_start_time(entry: dict, sun_data, workday_data):
@@ -154,17 +150,19 @@ def calculate_next_start_time(entry: dict, sun_data, workday_data):
     # check if time has already passed for today
     iterations = 0
     delta = nexttime - now
-    while delta.total_seconds() <= 0 and iterations<100:
+    while delta.total_seconds() <= 0 and iterations < 100:
         nexttime = nexttime + datetime.timedelta(days=1)
         delta = nexttime - now
         iterations = iterations + 1
 
     # check if timer is restricted in days of the week
-    while not is_allowed_day(nexttime, entry["days"], workday_data) and iterations<100:
+    while (
+        not is_allowed_day(nexttime, entry["days"], workday_data) and iterations < 100
+    ):
         nexttime = nexttime + datetime.timedelta(days=1)
         iterations = iterations + 1
 
-    if iterations==100:
+    if iterations == 100:
         _LOGGER.error(entry)
         raise Exception("failed to calculate timestamp")
     return nexttime
@@ -184,22 +182,24 @@ def is_between_start_time_and_end_time(entry: dict, sun_data, workday_data):
     # check if time has already passed for today
     iterations = 0
     delta = end_time - now
-    while delta.total_seconds() <= 0 and iterations<100:
+    while delta.total_seconds() <= 0 and iterations < 100:
         end_time = end_time + datetime.timedelta(days=1)
         start_time = start_time + datetime.timedelta(days=1)
         delta = end_time - now
         iterations = iterations + 1
 
     # check if timer is restricted in days of the week
-    while not is_allowed_day(start_time, entry["days"], workday_data) and iterations<100:
+    while (
+        not is_allowed_day(start_time, entry["days"], workday_data) and iterations < 100
+    ):
         start_time = start_time + datetime.timedelta(days=1)
         end_time = end_time + datetime.timedelta(days=1)
         iterations = iterations + 1
 
-    if iterations==100:
+    if iterations == 100:
         _LOGGER.error(entry)
         raise Exception("failed to calculate timestamp")
-    
+
     delta_start = (start_time - now).total_seconds()
     delta_end = (end_time - now).total_seconds()
 

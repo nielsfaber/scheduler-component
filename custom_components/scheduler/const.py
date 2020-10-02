@@ -46,11 +46,21 @@ ENTRY_PATTERN_WEEKEND = "67"
 
 WORKDAY_ENTITY = "binary_sensor.workday_sensor"
 
+CONDITION_TYPE_AND = "and"
+CONDITION_TYPE_OR = "or"
+
+MATCH_TYPE_EQUAL = "is"
+MATCH_TYPE_UNEQUAL = "not"
+MATCH_TYPE_BELOW = "below"
+MATCH_TYPE_ABOVE = "above"
+
 FIXED_TIME_ENTRY_SCHEMA = cv.time
 
 SUN_TIME_ENTRY_SCHEMA = vol.Schema(
     {
-        vol.Required("event"): vol.In([TIME_EVENT_SUNRISE, TIME_EVENT_SUNSET, TIME_EVENT_DAWN, TIME_EVENT_DUSK]),
+        vol.Required("event"): vol.In(
+            [TIME_EVENT_SUNRISE, TIME_EVENT_SUNSET, TIME_EVENT_DAWN, TIME_EVENT_DUSK]
+        ),
         vol.Optional("offset"): cv.time_period_str,
     }
 )
@@ -59,7 +69,21 @@ ENTRY_SCHEMA = vol.Any(FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA)
 
 DAYS_SCHEMA = vol.Schema(
     {
-        vol.Required("type"): vol.In([DAY_TYPE_DAILY, DAY_TYPE_WORKDAY, DAY_TYPE_WEEKEND, DAY_TYPE_CUSTOM]),
+        vol.Required("type"): vol.In(
+            [DAY_TYPE_DAILY, DAY_TYPE_WORKDAY, DAY_TYPE_WEEKEND, DAY_TYPE_CUSTOM]
+        ),
+        vol.Optional("list"): vol.All(
+            cv.ensure_list,
+            vol.Unique(),
+            vol.Length(min=1),
+            [vol.All(int, vol.Range(min=0))],
+        ),
+    }
+)
+
+ENTRY_CONDITIONS_SCHEMA = vol.Schema(
+    {
+        vol.Required("type"): vol.In([CONDITION_TYPE_AND, CONDITION_TYPE_OR]),
         vol.Optional("list"): vol.All(
             cv.ensure_list,
             vol.Unique(),
@@ -82,6 +106,7 @@ ENTRY_SCHEMA = vol.Schema(
             vol.Length(min=1),
             [vol.All(int, vol.Range(min=0))],
         ),
+        vol.Optional("conditions"): ENTRY_CONDITIONS_SCHEMA,
     }
 )
 
@@ -94,6 +119,17 @@ ACTION_SCHEMA = vol.Schema(
     }
 )
 
+CONDITION_SCHEMA = vol.Schema(
+    {
+        vol.Optional("entity"): cv.entity_id,
+        vol.Optional("state"): vol.Any(int, float, str),
+        vol.Optional("match_type"): vol.In(
+            [MATCH_TYPE_EQUAL, MATCH_TYPE_UNEQUAL, MATCH_TYPE_BELOW, MATCH_TYPE_ABOVE]
+        ),
+    }
+)
+
+
 SCHEMA_ADD = vol.Schema(
     {
         vol.Required("entries"): vol.All(
@@ -101,6 +137,9 @@ SCHEMA_ADD = vol.Schema(
         ),
         vol.Required("actions"): vol.All(
             cv.ensure_list, vol.Length(min=1), [ACTION_SCHEMA]
+        ),
+        vol.Optional("conditions"): vol.All(
+            cv.ensure_list, vol.Length(min=1), [CONDITION_SCHEMA]
         ),
         vol.Optional("name"): cv.string,
     }
