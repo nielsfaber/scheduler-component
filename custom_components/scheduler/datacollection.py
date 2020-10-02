@@ -12,6 +12,13 @@ EntryPattern = re.compile("^([0-9]+)?D([0-9]+)?T([0-9SRDUW]+)T?([0-9SRDUW]+)?A([
 FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
 SunTimePattern = re.compile("^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$")
 
+from .helpers import (
+    calculate_next_start_time,
+    is_between_start_time_and_end_time,
+    parse_iso_timestamp,
+    timedelta_to_string,
+)
+
 from .const import (
     CONDITION_TYPE_AND,
     CONDITION_TYPE_OR,
@@ -127,7 +134,6 @@ class DataCollection:
                 my_entry["options"] = entry["options"]
             
             self.entries.append(my_entry)
-            _LOGGER.debug(my_entry)
 
         if "name" in data:
             self.name = data["name"]
@@ -136,7 +142,6 @@ class DataCollection:
             self.conditions = data["conditions"]
 
         if "options" in data:
-            _LOGGER.debug(data["options"])
             self.options = data["options"]
 
     def get_next_entry(self):
