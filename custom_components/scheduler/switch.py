@@ -294,15 +294,30 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
     async def async_execute_command(self):
         """Helper to execute command."""
+<<<<<<< HEAD
         condition_entities = self.dataCollection.get_condition_entities_for_entry(self._entry)
         if condition_entities:
             _LOGGER.debug("validating conditions for %s" % self.entity_id)
+=======
+        condition_entities = self.dataCollection.get_condition_entities_for_entry(
+            self._entry
+        )
+        if condition_entities:
+            _LOGGER.debug("validating conditions for %s" % self.id)
+>>>>>>> e6b6028579a1f89e0f7cd2f2a3e8ef278a3de522
             states = {}
             for entity in condition_entities:
                 state = await self.coordinator.async_request_state(entity)
                 states[entity] = state
+<<<<<<< HEAD
         
             result = self.dataCollection.validate_conditions_for_entry(self._entry, states)
+=======
+
+            result = self.dataCollection.validate_conditions_for_entry(
+                self._entry, states
+            )
+>>>>>>> e6b6028579a1f89e0f7cd2f2a3e8ef278a3de522
             if not result:
                 _LOGGER.debug("conditions have failed, skipping execution of actions")
                 return
@@ -328,7 +343,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             self.dataCollection = data
 
         await self.async_start_timer()
-    
+
     async def async_service_remove(self):
         self._state = STATE_DISABLED
         if self._timer:
@@ -402,7 +417,6 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         await self.coordinator.async_update_sun_data()
         self._registered_sun_update = True
 
-
     async def async_update_workday_data(self):
         if not self.dataCollection or not self.dataCollection.has_workday():
             return
@@ -418,9 +432,10 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                 return
             if not self.dataCollection.has_workday(self._entry):
                 return
-                
 
-            should_update = self.dataCollection.update_workday_data(workday_data, self._entry)
+            should_update = self.dataCollection.update_workday_data(
+                workday_data, self._entry
+            )
             if should_update:
                 self._state = STATE_DISABLED
                 self._timer()

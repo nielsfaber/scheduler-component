@@ -12,17 +12,18 @@ from homeassistant.helpers.event import async_track_state_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
-    DOMAIN, SCHEMA_ADD, SERVICE_ADD, SUN_ENTITY, VERSION,
-    TIME_EVENT_SUNRISE,
-    TIME_EVENT_SUNSET,
+    DOMAIN,
+    SCHEMA_ADD,
+    SERVICE_ADD,
+    SUN_ENTITY,
     TIME_EVENT_DAWN,
     TIME_EVENT_DUSK,
+    TIME_EVENT_SUNRISE,
+    TIME_EVENT_SUNSET,
+    VERSION,
     WORKDAY_ENTITY,
 )
-
-from .helpers import (
-    convert_days_to_numbers
-)
+from .helpers import convert_days_to_numbers
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -98,7 +99,6 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
     async def async_update_sun_data(self):
-
         async def async_sun_updated(entity, old_state, new_state):
             for item in self._sun_listeners:
                 await item(self.sun_data)
@@ -106,7 +106,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         sun_state = self.hass.states.get(SUN_ENTITY)
         if not sun_state:
             return
-        
+
         sun_data = {
             TIME_EVENT_SUNRISE: sun_state.attributes["next_rising"],
             TIME_EVENT_SUNSET: sun_state.attributes["next_setting"],
@@ -118,11 +118,10 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             async_track_state_change(self.hass, SUN_ENTITY, async_sun_updated)
             for item in self._sun_listeners:
                 await item(sun_data)
-        
+
         self.sun_data = sun_data
-            
+
     async def async_update_workday_data(self):
-        
         async def async_workday_updated(entity, old_state, new_state):
             for item in self._workday_listeners:
                 await item(self.workday_data)
@@ -130,17 +129,17 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         workday_state = self.hass.states.get(WORKDAY_ENTITY)
         if not workday_state:
             return
-        
+
         workday_data = {
             "workdays": convert_days_to_numbers(workday_state.attributes["workdays"]),
-            "today_is_workday": (workday_state.state == "on")
+            "today_is_workday": (workday_state.state == "on"),
         }
-        
+
         if self.workday_data is None:
             async_track_state_change(self.hass, WORKDAY_ENTITY, async_workday_updated)
             for item in self._workday_listeners:
                 await item(workday_data)
-        
+
         self.workday_data = workday_data
 
     async def _async_update_data(self):

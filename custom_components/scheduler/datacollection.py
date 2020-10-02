@@ -12,31 +12,18 @@ EntryPattern = re.compile("^([0-9]+)?D([0-9]+)?T([0-9SRDUW]+)T?([0-9SRDUW]+)?A([
 FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
 SunTimePattern = re.compile("^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$")
 
-from .helpers import (
-    calculate_next_start_time,
-    is_between_start_time_and_end_time,
-    parse_iso_timestamp,
-    timedelta_to_string,
-)
-
 from .const import (
-    TIME_EVENT_SUNRISE,
-    TIME_EVENT_SUNSET,
-    TIME_EVENT_DAWN,
-    TIME_EVENT_DUSK,
-
-    ENTRY_PATTERN_SUNRISE,
-    ENTRY_PATTERN_SUNSET,
+    CONDITION_TYPE_AND,
+    CONDITION_TYPE_OR,
+    DAY_TYPE_CUSTOM,
+    DAY_TYPE_DAILY,
+    DAY_TYPE_WEEKEND,
+    DAY_TYPE_WORKDAY,
+    ENTRY_PATTERN_DAILY,
     ENTRY_PATTERN_DAWN,
     ENTRY_PATTERN_DUSK,
-
-    DAY_TYPE_DAILY,
-    DAY_TYPE_WORKDAY,
-    DAY_TYPE_WEEKEND,
-    DAY_TYPE_CUSTOM,
-
-    ENTRY_PATTERN_DAILY,
-    ENTRY_PATTERN_WORKDAY,
+    ENTRY_PATTERN_SUNRISE,
+    ENTRY_PATTERN_SUNSET,
     ENTRY_PATTERN_WEEKEND,
 
     CONDITION_TYPE_AND,
@@ -47,6 +34,7 @@ from .const import (
     MATCH_TYPE_BELOW,
     MATCH_TYPE_ABOVE,
 )
+
 
 class DataCollection:
     """Defines a base schedule entity."""
@@ -122,7 +110,7 @@ class DataCollection:
                         my_entry["days"] = {"type": DAY_TYPE_DAILY}
                     else:
                         days_list = entry["days"]["list"]
-                        if len(days_list)==1 and days_list[0]==0:
+                        if len(days_list) == 1 and days_list[0] == 0:
                             my_entry["days"] = {"type": DAY_TYPE_DAILY}
                         else:
                             days_list.sort()
@@ -158,7 +146,9 @@ class DataCollection:
         timestamps = []
 
         for entry in self.entries:
-            next_time = calculate_next_start_time(entry, self.sun_data, self.workday_data)
+            next_time = calculate_next_start_time(
+                entry, self.sun_data, self.workday_data
+            )
             timestamps.append(next_time)
 
         closest_timestamp = reduce(
@@ -300,7 +290,9 @@ class DataCollection:
             elif days_list:
                 days_list = list(res.group(2))
                 days_list = [int(i) for i in days_list]
-                if len(days_list)==1 and days_list[0] == 0: #for backwards compatibility
+                if (
+                    len(days_list) == 1 and days_list[0] == 0
+                ):  # for backwards compatibility
                     my_entry["days"]["type"] = DAY_TYPE_DAILY
                 else:
                     my_entry["days"]["type"] = DAY_TYPE_CUSTOM
@@ -387,11 +379,11 @@ class DataCollection:
             entry_str = ""
 
             # parse days
-            if entry["days"]["type"]==DAY_TYPE_DAILY:
+            if entry["days"]["type"] == DAY_TYPE_DAILY:
                 entry_str += "{}D".format(ENTRY_PATTERN_DAILY)
-            elif entry["days"]["type"]==DAY_TYPE_WORKDAY:
+            elif entry["days"]["type"] == DAY_TYPE_WORKDAY:
                 entry_str += "{}D".format(ENTRY_PATTERN_WORKDAY)
-            elif entry["days"]["type"]==DAY_TYPE_WEEKEND:
+            elif entry["days"]["type"] == DAY_TYPE_WEEKEND:
                 entry_str += "{}D".format(ENTRY_PATTERN_WEEKEND)
             else:
                 days_arr = [str(i) for i in entry["days"]["list"]]
@@ -452,7 +444,9 @@ class DataCollection:
             return False
 
         if entry is not None:
-            ts_old = self.get_timestamp_for_entry(entry, self.sun_data, self.workday_data)
+            ts_old = self.get_timestamp_for_entry(
+                entry, self.sun_data, self.workday_data
+            )
             ts_new = self.get_timestamp_for_entry(entry, sun_data, self.workday_data)
 
             delta = (ts_old - ts_new).total_seconds()
@@ -489,12 +483,14 @@ class DataCollection:
             return False
 
         if entry is not None:
-            ts_old = self.get_timestamp_for_entry(entry, self.sun_data, self.workday_data)
+            ts_old = self.get_timestamp_for_entry(
+                entry, self.sun_data, self.workday_data
+            )
             ts_new = self.get_timestamp_for_entry(entry, self.sun_data, workday_data)
 
             delta = (ts_old - ts_new).total_seconds()
 
-            if abs(delta) >= 3600: # item needs to be rescheduled
+            if abs(delta) >= 3600:  # item needs to be rescheduled
                 return True
                 self.workday_data = workday_data
 

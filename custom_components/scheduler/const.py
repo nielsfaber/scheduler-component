@@ -60,7 +60,9 @@ FIXED_TIME_ENTRY_SCHEMA = cv.time
 
 SUN_TIME_ENTRY_SCHEMA = vol.Schema(
     {
-        vol.Required("event"): vol.In([TIME_EVENT_SUNRISE, TIME_EVENT_SUNSET, TIME_EVENT_DAWN, TIME_EVENT_DUSK]),
+        vol.Required("event"): vol.In(
+            [TIME_EVENT_SUNRISE, TIME_EVENT_SUNSET, TIME_EVENT_DAWN, TIME_EVENT_DUSK]
+        ),
         vol.Optional("offset"): cv.time_period_str,
     }
 )
@@ -69,7 +71,21 @@ ENTRY_SCHEMA = vol.Any(FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA)
 
 DAYS_SCHEMA = vol.Schema(
     {
-        vol.Required("type"): vol.In([DAY_TYPE_DAILY, DAY_TYPE_WORKDAY, DAY_TYPE_WEEKEND, DAY_TYPE_CUSTOM]),
+        vol.Required("type"): vol.In(
+            [DAY_TYPE_DAILY, DAY_TYPE_WORKDAY, DAY_TYPE_WEEKEND, DAY_TYPE_CUSTOM]
+        ),
+        vol.Optional("list"): vol.All(
+            cv.ensure_list,
+            vol.Unique(),
+            vol.Length(min=1),
+            [vol.All(int, vol.Range(min=0))],
+        ),
+    }
+)
+
+ENTRY_CONDITIONS_SCHEMA = vol.Schema(
+    {
+        vol.Required("type"): vol.In([CONDITION_TYPE_AND, CONDITION_TYPE_OR]),
         vol.Optional("list"): vol.All(
             cv.ensure_list,
             vol.Unique(),
