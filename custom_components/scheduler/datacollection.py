@@ -29,10 +29,15 @@ from .const import (
     ENTRY_PATTERN_SUNRISE,
     ENTRY_PATTERN_SUNSET,
     ENTRY_PATTERN_WEEKEND,
+    ENTRY_PATTERN_WORKDAY,
     MATCH_TYPE_ABOVE,
     MATCH_TYPE_BELOW,
     MATCH_TYPE_EQUAL,
     MATCH_TYPE_UNEQUAL,
+    TIME_EVENT_DAWN,
+    TIME_EVENT_DUSK,
+    TIME_EVENT_SUNRISE,
+    TIME_EVENT_SUNSET,
 )
 from .helpers import (
     calculate_next_start_time,
