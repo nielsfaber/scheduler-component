@@ -143,15 +143,18 @@ CONDITION_SCHEMA = vol.Schema(
     {
         vol.Optional("entity"): cv.entity_id,
         vol.Optional("state"): vol.Any(int, float, str),
-        vol.Optional("match_type"): vol.In([MATCH_TYPE_EQUAL, MATCH_TYPE_UNEQUAL, MATCH_TYPE_BELOW, MATCH_TYPE_ABOVE]),
+        vol.Optional("match_type"): vol.In(
+            [MATCH_TYPE_EQUAL, MATCH_TYPE_UNEQUAL, MATCH_TYPE_BELOW, MATCH_TYPE_ABOVE]
+        ),
     }
 )
 
 OPTIONS_SCHEMA = vol.Schema(
     {
         vol.Optional(OPTION_RUN_ONCE): cv.boolean,
-    }
-, extra=True)
+    },
+    extra=True,
+)
 
 SCHEMA_ADD = vol.Schema(
     {
@@ -164,7 +167,7 @@ SCHEMA_ADD = vol.Schema(
         vol.Optional("conditions"): vol.All(
             cv.ensure_list, vol.Length(min=1), [CONDITION_SCHEMA]
         ),
-        vol.Optional("options"): OPTIONS_SCHEMA
+        vol.Optional("options"): OPTIONS_SCHEMA,
     }
 )
 
