@@ -30,6 +30,7 @@ from .const import (
     STATE_TRIGGERED,
     STATE_WAITING,
     VERSION,
+    OPTION_RUN_ONCE,
 )
 from .datacollection import DataCollection
 
@@ -269,6 +270,11 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         # execute the action
         await self.async_execute_command()
 
+        if self.dataCollection.get_option_config(self._entry, OPTION_RUN_ONCE) is not None:
+            _LOGGER.debug("timer for %s has the run_once option, disabling" % self.entity_id)
+            await self.async_turn_off()
+            return
+
         # wait 1 minute before restarting
         now = dt_util.now().replace(microsecond=0)
         next = now + datetime.timedelta(minutes=1)
@@ -290,7 +296,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         """Helper to execute command."""
         condition_entities = self.dataCollection.get_condition_entities_for_entry(self._entry)
         if condition_entities:
-            _LOGGER.debug("validating conditions for %s" % self.id)
+            _LOGGER.debug("validating conditions for %s" % self.entity_id)
             states = {}
             for entity in condition_entities:
                 state = await self.coordinator.async_request_state(entity)

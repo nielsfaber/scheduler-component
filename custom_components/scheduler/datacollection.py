@@ -7,7 +7,7 @@ import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
-EntryPattern = re.compile("^([0-9]+)?D([0-9]+)?T([0-9SRDUW]+)T?([0-9SRDUW]+)?A([A0-9]+)+(C([C0-9]+))?$")
+EntryPattern = re.compile("^([0-9]+)?D([0-9]+)?T([0-9SRDUW]+)T?([0-9SRDUW]+)?A([A0-9]+)+(C([C0-9]+))?(F([F0-9]+))?$")
 
 FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
 SunTimePattern = re.compile("^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$")
@@ -55,6 +55,7 @@ class DataCollection:
         self.entries = []
         self.actions = []
         self.conditions = []
+        self.options = []
         self.name = None
         self.icon = None
         self.sun_data = None
@@ -134,13 +135,21 @@ class DataCollection:
             if "conditions" in entry:
                 my_entry["conditions"] = entry["conditions"]
 
+            if "options" in entry:
+                my_entry["options"] = entry["options"]
+            
             self.entries.append(my_entry)
+            _LOGGER.debug(my_entry)
 
         if "name" in data:
             self.name = data["name"]
 
         if "conditions" in data:            
             self.conditions = data["conditions"]
+
+        if "options" in data:
+            _LOGGER.debug(data["options"])
+            self.options = data["options"]
 
     def get_next_entry(self):
         """Find the closest timer from now"""
@@ -272,6 +281,7 @@ class DataCollection:
             end_time_str = res.group(4)
             action_list = res.group(5).split("A")
             condition_list = res.group(7)
+            option_list = res.group(9)
 
             my_entry = {}
 
@@ -319,6 +329,12 @@ class DataCollection:
                     for group in conditions_or:
                         conditions_list = [int(i) for i in group]
                         my_entry["conditions"]["list"].extend(conditions_list)
+            
+            # parse option
+            if option_list:
+                option_list = option_list.split("C")
+                option_list = [int(i) for i in option_list]
+                my_entry["options"] = option_list
 
             self.entries.append(my_entry)
 
@@ -330,6 +346,9 @@ class DataCollection:
 
         if "conditions" in data:
             self.conditions = data["conditions"]
+
+        if "options" in data:
+            self.options = data["options"]
 
         return True
 
@@ -399,11 +418,20 @@ class DataCollection:
                 else:
                     condition_string = "C".join(condition_arr)
                 entry_str += "C{}".format(condition_string)
+            
+            # parse options
+            if "options" in entry:
+                option_arr = [str(i) for i in entry["options"]]
+                option_string = "F".join(option_arr)
+                entry_str += "F{}".format(option_string)
 
             output["entries"].append(entry_str)
 
         if self.conditions:
             output["conditions"] = self.conditions
+
+        if self.options:
+            output["options"] = self.options
 
         return output
 
@@ -529,3 +557,16 @@ class DataCollection:
             return all(results)
         else:
             return any(results)
+    
+    def get_option_config(self, entry, option):
+        if not self.options or not "options" in self.entries[entry]:
+            return None
+
+        options_list = list(self.options.keys())
+
+        for num in self.entries[entry]["options"]:
+            option_key = options_list[num]
+            if option == option_key:
+                return self.options[option]
+        
+        return None

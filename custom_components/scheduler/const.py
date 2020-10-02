@@ -54,6 +54,8 @@ MATCH_TYPE_UNEQUAL = "not"
 MATCH_TYPE_BELOW = "below"
 MATCH_TYPE_ABOVE = "above"
 
+OPTION_RUN_ONCE = "run_once"
+
 FIXED_TIME_ENTRY_SCHEMA = cv.time
 
 SUN_TIME_ENTRY_SCHEMA = vol.Schema(
@@ -103,6 +105,12 @@ ENTRY_SCHEMA = vol.Schema(
             [vol.All(int, vol.Range(min=0))],
         ),
         vol.Optional("conditions"): ENTRY_CONDITIONS_SCHEMA,
+        vol.Optional("options"): vol.All(
+            cv.ensure_list,
+            vol.Unique(),
+            vol.Length(min=1),
+            [vol.All(int, vol.Range(min=0))],
+        ),
     }
 )
 
@@ -123,6 +131,11 @@ CONDITION_SCHEMA = vol.Schema(
     }
 )
 
+OPTIONS_SCHEMA = vol.Schema(
+    {
+        vol.Optional(OPTION_RUN_ONCE): cv.boolean,
+    }
+, extra=True)
 
 SCHEMA_ADD = vol.Schema(
     {
@@ -135,7 +148,7 @@ SCHEMA_ADD = vol.Schema(
         vol.Optional("conditions"): vol.All(
             cv.ensure_list, vol.Length(min=1), [CONDITION_SCHEMA]
         ),
-        vol.Optional("name"): cv.string,
+        vol.Optional("options"): OPTIONS_SCHEMA
     }
 )
 
