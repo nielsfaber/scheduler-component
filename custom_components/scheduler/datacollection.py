@@ -7,7 +7,7 @@ import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
-EntryPattern = re.compile("^([0-9]+)?D([0-9]+)?T([0-9SRDUW]+)T?([0-9SRDUW]+)?([A0-9]+)$")
+EntryPattern = re.compile("^([0-9]+)?D([0-9]+)?T([0-9SRDUW]+)T?([0-9SRDUW]+)?A([A0-9]+)+(C([C0-9]+))?$")
 
 FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
 SunTimePattern = re.compile("^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$")
@@ -38,6 +38,14 @@ from .const import (
     ENTRY_PATTERN_DAILY,
     ENTRY_PATTERN_WORKDAY,
     ENTRY_PATTERN_WEEKEND,
+
+    CONDITION_TYPE_AND,
+    CONDITION_TYPE_OR,
+
+    MATCH_TYPE_EQUAL,
+    MATCH_TYPE_UNEQUAL,
+    MATCH_TYPE_BELOW,
+    MATCH_TYPE_ABOVE,
 )
 
 class DataCollection:
@@ -46,6 +54,7 @@ class DataCollection:
     def __init__(self):
         self.entries = []
         self.actions = []
+        self.conditions = []
         self.name = None
         self.icon = None
         self.sun_data = None
@@ -97,8 +106,6 @@ class DataCollection:
         for entry in data["entries"]:
             my_entry = {}
 
-            _LOGGER.debug(entry)
-
             if "time" in entry:
                 my_entry["time"] = import_time_input(entry["time"])
 
@@ -124,12 +131,16 @@ class DataCollection:
 
             my_entry["actions"] = entry["actions"]
 
+            if "conditions" in entry:
+                my_entry["conditions"] = entry["conditions"]
 
-            _LOGGER.debug(my_entry)
             self.entries.append(my_entry)
 
         if "name" in data:
             self.name = data["name"]
+
+        if "conditions" in data:            
+            self.conditions = data["conditions"]
 
     def get_next_entry(self):
         """Find the closest timer from now"""
@@ -260,6 +271,7 @@ class DataCollection:
             time_str = res.group(3)
             end_time_str = res.group(4)
             action_list = res.group(5).split("A")
+            condition_list = res.group(7)
 
             my_entry = {}
 
@@ -294,6 +306,20 @@ class DataCollection:
             action_list = [int(i) for i in action_list]
             my_entry["actions"] = action_list
 
+            # parse condition
+            if condition_list:
+                my_entry["conditions"] = {"type": CONDITION_TYPE_OR, "list": []}
+                conditions_or = condition_list.split("C")
+                for group in conditions_or:
+                    if len(group)>1:
+                        my_entry["conditions"]["type"] = CONDITION_TYPE_AND
+                        conditions_list = [int(i) for i in group]
+                        my_entry["conditions"]["list"].extend(conditions_list)
+                if my_entry["conditions"]["type"] == CONDITION_TYPE_OR:
+                    for group in conditions_or:
+                        conditions_list = [int(i) for i in group]
+                        my_entry["conditions"]["list"].extend(conditions_list)
+
             self.entries.append(my_entry)
 
         if "friendly_name" in data:
@@ -301,6 +327,9 @@ class DataCollection:
 
         if "icon" in data:
             self.icon = data["icon"]
+
+        if "conditions" in data:
+            self.conditions = data["conditions"]
 
         return True
 
@@ -362,7 +391,19 @@ class DataCollection:
             action_string = "A".join(action_arr)
             entry_str += "A{}".format(action_string)
 
+            # parse conditions
+            if "conditions" in entry:
+                condition_arr = [str(i) for i in entry["conditions"]["list"]]
+                if entry["conditions"]["type"] == CONDITION_TYPE_AND:
+                    condition_string = "".join(condition_arr)
+                else:
+                    condition_string = "C".join(condition_arr)
+                entry_str += "C{}".format(condition_string)
+
             output["entries"].append(entry_str)
+
+        if self.conditions:
+            output["conditions"] = self.conditions
 
         return output
 
@@ -430,3 +471,61 @@ class DataCollection:
                 self.workday_data = workday_data
 
         return False
+
+    def get_condition_entities_for_entry(self, entry):
+        """Get the conditions for a specific entry"""
+        entity_list = []
+        if not self.conditions or not "conditions" in self.entries[entry]:
+            return None
+        
+        for entry_condition in self.entries[entry]["conditions"]["list"]:
+                entity = self.conditions[entry_condition]["entity"]
+                entity_list.append(entity)
+
+        return entity_list
+
+    def validate_conditions_for_entry(self, entry, states):
+        """Validate the set of conditions against the results"""
+        if not self.conditions or not "conditions" in self.entries[entry]:
+            return None
+        
+        results = []
+        for item in self.entries[entry]["conditions"]["list"]:
+            condition_item = self.conditions[item]
+            
+            required = condition_item["state"]
+            actual = states[condition_item["entity"]] if condition_item["entity"] in states else None
+
+            if isinstance(required, int):
+                try:
+                    actual = int(float(actual))
+                except:
+                    pass
+            elif isinstance(required, float):
+                try:
+                    actual = float(actual)
+                except:
+                    pass
+            elif isinstance(required, str):
+                actual = str(actual)
+
+            if actual == None or actual == "unavailable" or actual == "unknown":
+                result = False
+            elif condition_item["match_type"] == MATCH_TYPE_EQUAL:
+                result = (actual == required)
+            elif condition_item["match_type"] == MATCH_TYPE_UNEQUAL:
+                result = (actual != required)
+            elif condition_item["match_type"] == MATCH_TYPE_BELOW:
+                result = (actual < required)
+            elif condition_item["match_type"] == MATCH_TYPE_ABOVE:
+                result = (actual > required)
+            else: result = False
+
+            #_LOGGER.debug("validating condition for {}: required={}, actual={}, match_type={}, result={}".format(condition_item["entity"], required,actual,condition_item["match_type"], result))
+            results.append(result)
+        
+        condition_type = self.entries[entry]["conditions"]["type"]
+        if condition_type == CONDITION_TYPE_AND:
+            return all(results)
+        else:
+            return any(results)

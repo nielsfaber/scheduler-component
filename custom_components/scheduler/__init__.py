@@ -156,3 +156,9 @@ class SchedulerCoordinator(DataUpdateCoordinator):
 
     def add_workday_listener(self, cb_func):
         self._workday_listeners.append(cb_func)
+
+    async def async_request_state(self, entity_id):
+        state = self.hass.states.get(entity_id)
+        if state:
+            return state.state
+        return None
