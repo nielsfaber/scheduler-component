@@ -7,10 +7,14 @@ import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
-EntryPattern = re.compile("^([0-9]+)?D([0-9]+)?T([0-9SRDUW]+)T?([0-9SRDUW]+)?A([A0-9]+)+(C([C0-9]+))?(F([F0-9]+))?$")
+EntryPattern = re.compile(
+    "^([0-9]+)?D([0-9]+)?T([0-9SRDUW]+)T?([0-9SRDUW]+)?A([A0-9]+)+(C([C0-9]+))?(F([F0-9]+))?$"
+)
 
 FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
-SunTimePattern = re.compile("^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$")
+SunTimePattern = re.compile(
+    "^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$"
+)
 
 from .helpers import (
     calculate_next_start_time,
@@ -32,14 +36,10 @@ from .const import (
     ENTRY_PATTERN_SUNRISE,
     ENTRY_PATTERN_SUNSET,
     ENTRY_PATTERN_WEEKEND,
-
-    CONDITION_TYPE_AND,
-    CONDITION_TYPE_OR,
-
+    MATCH_TYPE_ABOVE,
+    MATCH_TYPE_BELOW,
     MATCH_TYPE_EQUAL,
     MATCH_TYPE_UNEQUAL,
-    MATCH_TYPE_BELOW,
-    MATCH_TYPE_ABOVE,
 )
 
 
@@ -132,13 +132,13 @@ class DataCollection:
 
             if "options" in entry:
                 my_entry["options"] = entry["options"]
-            
+
             self.entries.append(my_entry)
 
         if "name" in data:
             self.name = data["name"]
 
-        if "conditions" in data:            
+        if "conditions" in data:
             self.conditions = data["conditions"]
 
         if "options" in data:
@@ -318,7 +318,7 @@ class DataCollection:
                 my_entry["conditions"] = {"type": CONDITION_TYPE_OR, "list": []}
                 conditions_or = condition_list.split("C")
                 for group in conditions_or:
-                    if len(group)>1:
+                    if len(group) > 1:
                         my_entry["conditions"]["type"] = CONDITION_TYPE_AND
                         conditions_list = [int(i) for i in group]
                         my_entry["conditions"]["list"].extend(conditions_list)
@@ -326,7 +326,7 @@ class DataCollection:
                     for group in conditions_or:
                         conditions_list = [int(i) for i in group]
                         my_entry["conditions"]["list"].extend(conditions_list)
-            
+
             # parse option
             if option_list:
                 option_list = option_list.split("C")
@@ -415,7 +415,7 @@ class DataCollection:
                 else:
                     condition_string = "C".join(condition_arr)
                 entry_str += "C{}".format(condition_string)
-            
+
             # parse options
             if "options" in entry:
                 option_arr = [str(i) for i in entry["options"]]
@@ -506,10 +506,10 @@ class DataCollection:
         entity_list = []
         if not self.conditions or not "conditions" in self.entries[entry]:
             return None
-        
+
         for entry_condition in self.entries[entry]["conditions"]["list"]:
-                entity = self.conditions[entry_condition]["entity"]
-                entity_list.append(entity)
+            entity = self.conditions[entry_condition]["entity"]
+            entity_list.append(entity)
 
         return entity_list
 
@@ -517,13 +517,17 @@ class DataCollection:
         """Validate the set of conditions against the results"""
         if not self.conditions or not "conditions" in self.entries[entry]:
             return None
-        
+
         results = []
         for item in self.entries[entry]["conditions"]["list"]:
             condition_item = self.conditions[item]
-            
+
             required = condition_item["state"]
-            actual = states[condition_item["entity"]] if condition_item["entity"] in states else None
+            actual = (
+                states[condition_item["entity"]]
+                if condition_item["entity"] in states
+                else None
+            )
 
             if isinstance(required, int):
                 try:
@@ -541,24 +545,25 @@ class DataCollection:
             if actual == None or actual == "unavailable" or actual == "unknown":
                 result = False
             elif condition_item["match_type"] == MATCH_TYPE_EQUAL:
-                result = (actual == required)
+                result = actual == required
             elif condition_item["match_type"] == MATCH_TYPE_UNEQUAL:
-                result = (actual != required)
+                result = actual != required
             elif condition_item["match_type"] == MATCH_TYPE_BELOW:
-                result = (actual < required)
+                result = actual < required
             elif condition_item["match_type"] == MATCH_TYPE_ABOVE:
-                result = (actual > required)
-            else: result = False
+                result = actual > required
+            else:
+                result = False
 
-            #_LOGGER.debug("validating condition for {}: required={}, actual={}, match_type={}, result={}".format(condition_item["entity"], required,actual,condition_item["match_type"], result))
+            # _LOGGER.debug("validating condition for {}: required={}, actual={}, match_type={}, result={}".format(condition_item["entity"], required,actual,condition_item["match_type"], result))
             results.append(result)
-        
+
         condition_type = self.entries[entry]["conditions"]["type"]
         if condition_type == CONDITION_TYPE_AND:
             return all(results)
         else:
             return any(results)
-    
+
     def get_option_config(self, entry, option):
         if not self.options or not "options" in self.entries[entry]:
             return None
@@ -569,5 +574,5 @@ class DataCollection:
             option_key = options_list[num]
             if option == option_key:
                 return self.options[option]
-        
+
         return None
