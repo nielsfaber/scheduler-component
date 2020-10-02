@@ -11,7 +11,14 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_state_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .const import DOMAIN, SCHEMA_ADD, SERVICE_ADD, SUN_ENTITY, VERSION
+from .const import (
+    DOMAIN, SCHEMA_ADD, SERVICE_ADD, SUN_ENTITY, VERSION,
+    TIME_EVENT_SUNRISE,
+    TIME_EVENT_SUNSET,
+    TIME_EVENT_DAWN,
+    TIME_EVENT_DUSK,
+    WORKDAY_ENTITY,
+)
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -80,29 +87,57 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         self.id = entry.unique_id
         self.hass = hass
         self.sun_data = None
+        self.workday_data = None
         self._sun_listeners = []
+        self._workday_listeners = []
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
-        async def async_sun_updated(entity, old_state, new_state):
+    async def async_update_sun_data(self):
 
+        async def async_sun_updated(entity, old_state, new_state):
             for item in self._sun_listeners:
                 await item(self.sun_data)
 
         sun_state = self.hass.states.get(SUN_ENTITY)
-        if sun_state:
-            self.update_sun_data()
-            async_track_state_change(hass, SUN_ENTITY, async_sun_updated)
+        if not sun_state:
+            return
+        
+        sun_data = {
+            TIME_EVENT_SUNRISE: sun_state.attributes["next_rising"],
+            TIME_EVENT_SUNSET: sun_state.attributes["next_setting"],
+            TIME_EVENT_DAWN: sun_state.attributes["next_dawn"],
+            TIME_EVENT_DUSK: sun_state.attributes["next_dusk"],
+        }
 
-    def update_sun_data(self):
-        sun_state = self.hass.states.get(SUN_ENTITY)
-        if sun_state:
-            self.sun_data = {
-                "sunrise": sun_state.attributes["next_rising"],
-                "sunset": sun_state.attributes["next_setting"],
-                "dawn": sun_state.attributes["next_dawn"],
-                "dusk": sun_state.attributes["next_dusk"],
-            }
+        if self.sun_data is None:
+            async_track_state_change(self.hass, SUN_ENTITY, async_sun_updated)
+            for item in self._sun_listeners:
+                await item(sun_data)
+        
+        self.sun_data = sun_data
+            
+    async def async_update_workday_data(self):
+        
+        async def async_workday_updated(entity, old_state, new_state):
+            for item in self._workday_listeners:
+                await item(self.workday_data)
+
+        workday_state = self.hass.states.get(WORKDAY_ENTITY)
+        if not workday_state:
+            return
+        
+        workday_data = {
+            "workdays": workday_state.attributes["workdays"],
+            "today_is_workday": (workday_state.state == "on")
+        }
+        
+        if self.workday_data is None:
+            async_track_state_change(self.hass, WORKDAY_ENTITY, async_workday_updated)
+            for item in self._workday_listeners:
+                await item(workday_data)
+        
+        self.workday_data = workday_data
 
     async def _async_update_data(self):
         """Update data via library."""
@@ -114,3 +149,6 @@ class SchedulerCoordinator(DataUpdateCoordinator):
 
     def add_sun_listener(self, cb_func):
         self._sun_listeners.append(cb_func)
+
+    def add_workday_listener(self, cb_func):
+        self._workday_listeners.append(cb_func)

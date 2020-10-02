@@ -135,6 +135,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         self._entry = None
         self._next_trigger = None
         self._registered_sun_update = False
+        self._registered_workday_update = False
 
     @property
     def device_info(self) -> dict:
@@ -225,6 +226,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             return
 
         await self.async_update_sun_data()
+        await self.async_update_workday_data()
 
         (
             self._entry,
@@ -308,7 +310,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             self.dataCollection = data
 
         await self.async_start_timer()
-
+    
     async def async_service_remove(self):
         self._state = STATE_DISABLED
         if self._timer:
@@ -379,4 +381,35 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                 await self.async_start_timer()
 
         self.coordinator.add_sun_listener(async_sun_updated)
+        await self.coordinator.async_update_sun_data()
         self._registered_sun_update = True
+
+
+    async def async_update_workday_data(self):
+        if not self.dataCollection or not self.dataCollection.has_workday():
+            return
+
+        self.dataCollection.update_workday_data(self.coordinator.workday_data)
+
+        if not self._registered_workday_update:
+            await self.async_register_workday_updates()
+
+    async def async_register_workday_updates(self):
+        async def async_workday_updated(workday_data):
+            if self._state != STATE_WAITING:
+                return
+            if not self.dataCollection.has_workday(self._entry):
+                return
+                
+
+            should_update = self.dataCollection.update_workday_data(workday_data, self._entry)
+            if should_update:
+                self._state = STATE_DISABLED
+                self._timer()
+                self._timer = None
+                self._state = STATE_WAITING
+                await self.async_start_timer()
+
+        self.coordinator.add_workday_listener(async_workday_updated)
+        await self.coordinator.async_update_workday_data()
+        self._registered_workday_update = True

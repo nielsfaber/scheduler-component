@@ -6,6 +6,13 @@ import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
+from .const import (
+    DAY_TYPE_DAILY,
+    DAY_TYPE_WORKDAY,
+    DAY_TYPE_WEEKEND,
+    DAY_TYPE_CUSTOM,
+)
+
 
 def entity_exists_in_hass(hass, entity_id):
     """Check whether an entity ID exists."""
@@ -61,14 +68,8 @@ def calculate_datetime_from_entry(time_entry: dict, sun_data):
             hours=time_offset.hour, minutes=time_offset.minute
         )
 
-        if time_entry["event"] == "sunrise":
-            time_sun = sun_data["sunrise"]
-        elif time_entry["event"] == "sunset":
-            time_sun = sun_data["sunset"]
-        elif time_entry["event"] == "dawn":
-            time_sun = sun_data["dawn"]
-        elif time_entry["event"] == "dusk":
-            time_sun = sun_data["dusk"]
+        sun_event = time_entry["event"]
+        time_sun = sun_data[sun_event]
 
         time_sun = parse_iso_timestamp(time_sun)
 
@@ -82,8 +83,61 @@ def calculate_datetime_from_entry(time_entry: dict, sun_data):
 
     return time_obj
 
+def day_string_to_number(day_string):
+    if day_string == "mon":
+        return 1
+    elif day_string == "tue":
+        return 2
+    elif day_string == "wed":
+        return 3
+    elif day_string == "thu":
+        return 4
+    elif day_string == "fri":
+        return 5
+    elif day_string == "sat":
+        return 6
+    elif day_string == "sun":
+        return 7
+    else:
+        raise Exception("cannot read workday data")
 
-def calculate_next_start_time(entry: dict, sun_data):
+def is_allowed_day(date_obj: datetime.datetime, day_entry: dict, workday_data):
+    day = dt_util.as_local(date_obj).isoweekday()
+    workday_list = [1,2,3,4,5]
+    weekend_list = [6,7]
+    day_type = day_entry["type"]
+
+    if workday_data:
+        # update the list of workdays and weekend days with data from workday sensor
+        workday_list = []
+        weekend_list = [1,2,3,4,5,6,7]
+        for day_str in workday_data["workdays"]:
+            num = day_string_to_number(day_str)
+            workday_list.append(num)
+            weekend_list = list(filter(lambda x : x != num, weekend_list))
+        
+        today = dt_util.as_local(date_obj).date()
+        date_obj_date = dt_util.now().replace(microsecond=0).date()
+
+        # check if today is a workday according to the sensor (includes holidays)
+        if today == date_obj_date:
+            if day_type == DAY_TYPE_WORKDAY:
+                return workday_data["today_is_workday"]
+            elif day_type == DAY_TYPE_WEEKEND:
+                return (not workday_data["today_is_workday"])
+
+    if day_type == DAY_TYPE_DAILY:
+        return True
+    elif day_type == DAY_TYPE_WORKDAY:
+        return (day in workday_list)
+    elif day_type == DAY_TYPE_WEEKEND:
+        return (day in weekend_list)
+    elif day_type == DAY_TYPE_CUSTOM:
+        day_list = day_entry["list"]
+        return (day in day_list)
+
+
+def calculate_next_start_time(entry: dict, sun_data, workday_data):
     """Get datetime object with closest occurance based on time + weekdays input"""
     nexttime = calculate_datetime_from_entry(entry["time"], sun_data)
 
@@ -96,17 +150,13 @@ def calculate_next_start_time(entry: dict, sun_data):
         delta = nexttime - now
 
     # check if timer is restricted in days of the week
-    day_list = entry["days"]
-    if len(day_list) > 0 and not 0 in day_list:
-        weekday = dt_util.as_local(nexttime).isoweekday()
-        while weekday not in day_list:
-            nexttime = nexttime + datetime.timedelta(days=1)
-            weekday = dt_util.as_local(nexttime).isoweekday()
+    while not is_allowed_day(nexttime, entry["days"], workday_data):
+        nexttime = nexttime + datetime.timedelta(days=1)
 
     return nexttime
 
 
-def is_between_start_time_and_end_time(entry: dict, sun_data):
+def is_between_start_time_and_end_time(entry: dict, sun_data, workday_data):
     """Get datetime object with closest occurance based on time + weekdays input"""
 
     start_time = calculate_datetime_from_entry(entry["time"], sun_data)
@@ -125,13 +175,9 @@ def is_between_start_time_and_end_time(entry: dict, sun_data):
         delta = end_time - now
 
     # check if timer is restricted in days of the week
-    day_list = entry["days"]
-    if len(day_list) > 0 and not 0 in day_list:
-        weekday = dt_util.as_local(start_time).isoweekday()
-        while weekday not in day_list:
-            start_time = start_time + datetime.timedelta(days=1)
-            end_time = end_time + datetime.timedelta(days=1)
-            weekday = dt_util.as_local(start_time).isoweekday()
+    while not is_allowed_day(start_time, entry["days"], workday_data):
+        start_time = start_time + datetime.timedelta(days=1)
+        end_time = end_time + datetime.timedelta(days=1)
 
     delta_start = (start_time - now).total_seconds()
     delta_end = (end_time - now).total_seconds()
