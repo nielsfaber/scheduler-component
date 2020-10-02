@@ -92,16 +92,14 @@ jobs:
         run: git pull || true
       - name: Run formatting
         run: |
-          python -m isort -v .
-          python -m black -v --line-length 75 .
-          python -m isort -v .
-          python -m black -v --line-length 75 .
+          python -m isort -v --profile black .
+          python -m black -v .
       - name: Commit files
         run: |
           if [ $(git diff HEAD | wc -l) -gt 30 ]
           then
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "GitHub Actions"
-          git commit -m "Run formatting" -a || true
-          git push || true
+          git commit -a --amend --no-edit || true
+          git push --force || true
           fi

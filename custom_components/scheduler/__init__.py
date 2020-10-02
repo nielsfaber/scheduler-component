@@ -42,9 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     if entry.unique_id is None:
-        hass.config_entries.async_update_entry(
-            entry, unique_id=coordinator.id
-        )
+        hass.config_entries.async_update_entry(entry, unique_id=coordinator.id)
 
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, PLATFORM)
@@ -66,11 +64,7 @@ async def async_unload_entry(hass, entry):
     """Unload Scheduler config entry."""
     unload_ok = all(
         await asyncio.gather(
-            *[
-                hass.config_entries.async_forward_entry_unload(
-                    entry, PLATFORM
-                )
-            ]
+            *[hass.config_entries.async_forward_entry_unload(entry, PLATFORM)]
         )
     )
     if unload_ok:

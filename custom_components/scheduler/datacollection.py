@@ -7,12 +7,12 @@ import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
-EntryPattern = re.compile(
-    "^D([0-9]+)T([0-9SRDUW]+)T?([0-9SRDUW]+)?([A0-9]+)$"
-)
+EntryPattern = re.compile("^D([0-9]+)T([0-9SRDUW]+)T?([0-9SRDUW]+)?([A0-9]+)$")
 
 FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
-SunTimePattern = re.compile("^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$")
+SunTimePattern = re.compile(
+    "^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$"
+)
 
 from .helpers import (
     calculate_next_start_time,
@@ -150,14 +150,10 @@ class DataCollection:
 
                 if not "." in call["service"]:
                     domain = call["entity_id"].split(".").pop(0)
-                    call["service"] = "{}.{}".format(
-                        domain, call["service"]
-                    )
+                    call["service"] = "{}.{}".format(domain, call["service"])
                 elif "entity_id" in call and not "." in call["entity_id"]:
                     domain = call["service"].split(".").pop(0)
-                    call["entity_id"] = "{}.{}".format(
-                        domain, call["entity_id"]
-                    )
+                    call["entity_id"] = "{}.{}".format(domain, call["entity_id"])
 
                 if (
                     "entity_id" in action_data
@@ -165,11 +161,7 @@ class DataCollection:
                     call["entity_id"] = action_data["entity_id"]
 
                 for attr in action_data:
-                    if (
-                        attr == "service"
-                        or attr == "entity"
-                        or attr == "entity_id"
-                    ):
+                    if attr == "service" or attr == "entity" or attr == "entity_id":
                         continue
                     if not "data" in call:
                         call["data"] = {}
@@ -206,9 +198,7 @@ class DataCollection:
                 elif sun_time_pattern.group(4) == "DU":
                     res["event"] = "dusk"
 
-                if (
-                    sun_time_pattern.group(1) is not None
-                ):  # negative offset
+                if sun_time_pattern.group(1) is not None:  # negative offset
                     res["offset"] = "-{}:{}".format(
                         sun_time_pattern.group(2),
                         sun_time_pattern.group(3),
@@ -272,15 +262,11 @@ class DataCollection:
                 if "+" in entry_time["offset"]:
                     time_str = "{}{}".format(
                         event_string,
-                        entry_time["offset"]
-                        .replace("+", "")
-                        .replace(":", ""),
+                        entry_time["offset"].replace("+", "").replace(":", ""),
                     )
                 else:
                     time_str = "{}{}".format(
-                        entry_time["offset"]
-                        .replace("-", "")
-                        .replace(":", ""),
+                        entry_time["offset"].replace("-", "").replace(":", ""),
                         event_string,
                     )
             else:
@@ -290,9 +276,7 @@ class DataCollection:
         for entry in self.entries:
             time_string = export_time(entry["time"])
             end_time_string = (
-                export_time(entry["end_time"])
-                if "end_time" in entry
-                else None
+                export_time(entry["end_time"]) if "end_time" in entry else None
             )
 
             days_arr = [str(i) for i in entry["days"]]

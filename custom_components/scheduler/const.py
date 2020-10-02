@@ -21,9 +21,7 @@ FIXED_TIME_ENTRY_SCHEMA = cv.time
 
 SUN_TIME_ENTRY_SCHEMA = vol.Schema(
     {
-        vol.Required("event"): vol.In(
-            ["sunrise", "sunset", "dawn", "dusk"]
-        ),
+        vol.Required("event"): vol.In(["sunrise", "sunset", "dawn", "dusk"]),
         vol.Optional("offset"): cv.time_period_str,
     }
 )
@@ -32,9 +30,7 @@ ENTRY_SCHEMA = vol.Any(FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA)
 
 ENTRY_SCHEMA = vol.Schema(
     {
-        vol.Required("time"): vol.Any(
-            FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA
-        ),
+        vol.Required("time"): vol.Any(FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA),
         vol.Optional("end_time"): vol.Any(
             FIXED_TIME_ENTRY_SCHEMA, SUN_TIME_ENTRY_SCHEMA
         ),
@@ -76,9 +72,7 @@ SCHEMA_ADD = vol.Schema(
 
 SCHEMA_ENTITY = vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.entity_ids})
 
-SCHEMA_EDIT = SCHEMA_ADD.extend(
-    {vol.Required(ATTR_ENTITY_ID): cv.entity_ids}
-)
+SCHEMA_EDIT = SCHEMA_ADD.extend({vol.Required(ATTR_ENTITY_ID): cv.entity_ids})
 
 SCHEMA_TEST = SCHEMA_ENTITY.extend(
     {vol.Optional("entries"): vol.All(int, vol.Range(min=0))}
