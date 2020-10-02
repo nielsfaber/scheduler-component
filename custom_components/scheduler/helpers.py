@@ -39,9 +39,7 @@ def timedelta_to_string(time_input: datetime.timedelta):
         minutes = abs(round(seconds / 60))
         sign = "-"
 
-    return "{}{}:{}".format(
-        sign, str(hours).zfill(2), str(minutes).zfill(2)
-    )
+    return "{}{}:{}".format(sign, str(hours).zfill(2), str(minutes).zfill(2))
 
 
 def calculate_datetime_from_entry(time_entry: dict, sun_data):
@@ -146,8 +144,7 @@ def is_between_start_time_and_end_time(entry: dict, sun_data):
 
 def parse_iso_timestamp(time_string):
     time_obj = datetime.datetime.strptime(
-        time_string[: len(time_string) - 3]
-        + time_string[len(time_string) - 2 :],
+        time_string[: len(time_string) - 3] + time_string[len(time_string) - 2 :],
         "%Y-%m-%dT%H:%M:%S%z",
     )
 

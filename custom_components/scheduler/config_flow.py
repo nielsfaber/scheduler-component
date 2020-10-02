@@ -19,6 +19,4 @@ class SchedulerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(id)
         self._abort_if_unique_id_configured(updates=user_input)
 
-        return self.async_create_entry(
-            title="Scheduler integration", data={}
-        )
+        return self.async_create_entry(title="Scheduler integration", data={})

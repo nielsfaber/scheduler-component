@@ -7,9 +7,7 @@ from typing import cast
 from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
-from homeassistant.helpers.device_registry import (
-    async_entries_for_config_entry,
-)
+from homeassistant.helpers.device_registry import async_entries_for_config_entry
 from homeassistant.helpers.entity import ToggleEntity
 from homeassistant.helpers.entity_registry import async_entries_for_device
 from homeassistant.helpers.event import async_track_point_in_utc_time
@@ -48,9 +46,7 @@ async def async_setup(hass, config):
     return True
 
 
-async def async_setup_platform(
-    hass, config, async_add_entities, discovery_info=None
-):
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the platform from config."""
     return True
 
@@ -62,27 +58,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     entities = []
 
-    device_registry = (
-        await hass.helpers.device_registry.async_get_registry()
-    )
-    devices = async_entries_for_config_entry(
-        device_registry, config_entry.entry_id
-    )
+    device_registry = await hass.helpers.device_registry.async_get_registry()
+    devices = async_entries_for_config_entry(device_registry, config_entry.entry_id)
 
     if len(devices) > 1:
         _LOGGER.error("Found multiple devices for integration")
         return False
     elif not devices:
-        _LOGGER.error(
-            "Integration needs to be set up before it can be used"
-        )
+        _LOGGER.error("Integration needs to be set up before it can be used")
         return False
 
     device = devices[0]
 
-    entity_registry = (
-        await hass.helpers.entity_registry.async_get_registry()
-    )
+    entity_registry = await hass.helpers.entity_registry.async_get_registry()
     for entry in async_entries_for_device(entity_registry, device.id):
 
         entities.append(ScheduleEntity(coordinator, entry.unique_id))
@@ -95,9 +83,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
         # Generate a unique token
         token = secrets.token_hex(3)
-        while entity_exists_in_hass(
-            hass, "{}.schedule_{}".format(PLATFORM, token)
-        ):
+        while entity_exists_in_hass(hass, "{}.schedule_{}".format(PLATFORM, token)):
             token = secrets.token_hex(3)
 
         datacollection = DataCollection()
@@ -190,9 +176,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     def state_attributes(self):
         """Return the data of the entity."""
         output = (
-            self.dataCollection.export_data()
-            if self.dataCollection is not None
-            else {}
+            self.dataCollection.export_data() if self.dataCollection is not None else {}
         )
         if self._next_trigger:
             output["next_trigger"] = self._next_trigger
@@ -253,9 +237,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
         self._entry = self.dataCollection.get_next_entry()
 
-        timestamp = self.dataCollection.get_timestamp_for_entry(
-            self._entry
-        )
+        timestamp = self.dataCollection.get_timestamp_for_entry(self._entry)
         self._next_trigger = dt_util.as_local(timestamp).isoformat()
 
         self._timer = async_track_point_in_utc_time(
@@ -304,9 +286,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
     async def async_execute_command(self):
         """Helper to execute command."""
-        service_calls = self.dataCollection.get_service_calls_for_entry(
-            self._entry
-        )
+        service_calls = self.dataCollection.get_service_calls_for_entry(self._entry)
         for service_call in service_calls:
             _LOGGER.debug("executing service %s" % service_call["service"])
             await async_call_from_config(
@@ -390,9 +370,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             if not self.dataCollection.has_sun(self._entry):
                 return
 
-            should_update = self.dataCollection.update_sun_data(
-                sun_data, self._entry
-            )
+            should_update = self.dataCollection.update_sun_data(sun_data, self._entry)
             if should_update:
                 self._state = STATE_DISABLED
                 self._timer()
