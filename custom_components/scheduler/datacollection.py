@@ -166,7 +166,7 @@ class DataCollection:
 
         for i in range(len(timestamps)):
             if timestamps[i] == closest_timestamp:
-                return i
+                return (i, timestamps[i])
 
     def has_overlapping_timeslot(self):
         """Check if there are timeslots which overlapping with now"""
@@ -490,18 +490,16 @@ class DataCollection:
         if not self.workday_data:
             self.workday_data = workday_data
             return False
-
         if entry is not None:
             ts_old = self.get_timestamp_for_entry(
                 entry, self.sun_data, self.workday_data
             )
             ts_new = self.get_timestamp_for_entry(entry, self.sun_data, workday_data)
-
             delta = (ts_old - ts_new).total_seconds()
 
             if abs(delta) >= 3600:  # item needs to be rescheduled
-                return True
                 self.workday_data = workday_data
+                return True
 
         return False
 

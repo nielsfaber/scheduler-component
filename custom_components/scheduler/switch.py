@@ -226,9 +226,9 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         if self._state == STATE_DISABLED:
             return
 
+        _LOGGER.debug("setting up %s" % self.entity_id)
         await self.async_update_sun_data()
         await self.async_update_workday_data()
-
         (
             self._entry,
             has_overlapping_timeslot,
@@ -238,9 +238,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             # execute the action
             await self.async_execute_command()
 
-        self._entry = self.dataCollection.get_next_entry()
-
-        timestamp = self.dataCollection.get_timestamp_for_entry(self._entry)
+        (self._entry, timestamp) = self.dataCollection.get_next_entry()
         self._next_trigger = dt_util.as_local(timestamp).isoformat()
 
         self._timer = async_track_point_in_utc_time(
@@ -336,7 +334,14 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             self._valid = data.import_data(state.attributes)
             self.dataCollection = data
 
-        await self.async_start_timer()
+        async def async_startup_finished():
+            await self.async_start_timer()
+
+
+        if not self.coordinator.is_started:
+            self.coordinator.add_startup_listener(async_startup_finished)
+        else:
+            await self.async_start_timer()
 
     async def async_service_remove(self):
         self._state = STATE_DISABLED
@@ -408,13 +413,11 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                 await self.async_start_timer()
 
         self.coordinator.add_sun_listener(async_sun_updated)
-        await self.coordinator.async_update_sun_data()
         self._registered_sun_update = True
 
     async def async_update_workday_data(self):
         if not self.dataCollection or not self.dataCollection.has_workday():
             return
-
         self.dataCollection.update_workday_data(self.coordinator.workday_data)
 
         if not self._registered_workday_update:
@@ -438,5 +441,4 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                 await self.async_start_timer()
 
         self.coordinator.add_workday_listener(async_workday_updated)
-        await self.coordinator.async_update_workday_data()
         self._registered_workday_update = True
