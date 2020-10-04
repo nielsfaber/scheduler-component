@@ -156,7 +156,6 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             self.sun_data = sun_data
     
     async def async_workday_updated(self, entity, old_state, new_state):
-        _LOGGER.debug("-----------")
         self.update_workday_data()
         if self.workday_data:
             for item in self._workday_listeners:
@@ -171,7 +170,6 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             "workdays": convert_days_to_numbers(workday_state.attributes["workdays"]),
             "today_is_workday": (workday_state.state == "on"),
         }
-        _LOGGER.debug(workday_data)
         if not self.workday_data:
             self.workday_data = workday_data
             self.check_ready()
@@ -200,3 +198,4 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         if state:
             return state.state
         return None
+
