@@ -2,7 +2,6 @@
 import datetime
 import logging
 import secrets
-from typing import cast
 
 from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.core import HomeAssistant
@@ -13,7 +12,6 @@ from homeassistant.helpers.entity_registry import async_entries_for_device
 from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.service import async_call_from_config
-from homeassistant.helpers.trigger import async_initialize_triggers
 from homeassistant.util import dt as dt_util
 
 from .const import (
