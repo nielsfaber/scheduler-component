@@ -131,15 +131,15 @@ class DataCollection:
 
             my_entry["actions"] = entry["actions"]
 
-            if "conditions" in entry:
+            if "conditions" in entry and entry["conditions"]:
                 my_entry["conditions"] = entry["conditions"]
 
-            if "options" in entry:
+            if "options" in entry and entry["options"]:
                 my_entry["options"] = entry["options"]
 
             self.entries.append(my_entry)
 
-        if "name" in data:
+        if "name" in data and data["name"]:
             self.name = data["name"]
 
         if "conditions" in data:
@@ -181,6 +181,10 @@ class DataCollection:
                 return i, True
 
         return None, False
+
+    def is_timeslot(self, entry):
+        entry = self.entries[entry]
+        return "end_time" in entry
 
     def get_timestamp_for_entry(self, entry, sun_data=None, workday_data=None):
         """Get a timestamp for a specific entry"""
@@ -463,8 +467,8 @@ class DataCollection:
             if (
                 abs(delta) >= 60 and abs(delta) <= 3600
             ):  # only reschedule if the drift is more than 1 min, and not hours (next day)
-                return True
                 self.sun_data = sun_data
+                return True
 
         return False
 
