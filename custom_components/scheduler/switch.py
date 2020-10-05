@@ -10,7 +10,11 @@ from homeassistant.helpers import entity_platform
 from homeassistant.helpers.device_registry import async_entries_for_config_entry
 from homeassistant.helpers.entity import ToggleEntity
 from homeassistant.helpers.entity_registry import async_entries_for_device
-from homeassistant.helpers.event import (async_track_point_in_utc_time, async_track_state_change, async_call_later)
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_point_in_utc_time,
+    async_track_state_change,
+)
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.service import async_call_from_config
 from homeassistant.helpers.trigger import async_initialize_triggers
@@ -237,7 +241,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             self._entry,
             has_overlapping_timeslot,
         ) = self.dataCollection.has_overlapping_timeslot()
-        
+
         if has_overlapping_timeslot:
             # execute the action
             _LOGGER.debug("We are starting in a timeslot. Proceed with actions.")
@@ -310,7 +314,6 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         self._queued_entry = self._entry
 
         service_calls = self.dataCollection.get_service_calls_for_entry(self._entry)
-        
         for num in range(len(service_calls)):
             service_call = service_calls[num]
 
@@ -318,10 +321,11 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
         for item in self._queued_actions:
             if item is not None and not self.dataCollection.is_timeslot(self._entry):
-                _LOGGER.debug("allowing devices to recover for 60 sec")
-                self._retry_timeout = async_call_later(self.coordinator.hass, 60, self.async_abort_queued_actions)
+                _LOGGER.debug("allowing devices to recover for 10 mins")
+                self._retry_timeout = async_call_later(
+                    self.coordinator.hass, 600, self.async_abort_queued_actions
+                )
                 break
-        
 
     async def async_abort_queued_actions(self, is_timeout=None):
         if self._retry_timeout:
@@ -334,15 +338,15 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             self._queued_entry = None
 
     async def async_queue_action(self, num, service_call):
-        async def async_handle_device_available(): 
+        async def async_handle_device_available():
 
             await self.async_execute_action(service_call)
 
-            if self._queued_actions[num]: # remove state change listener from queue
+            if self._queued_actions[num]:  # remove state change listener from queue
                 self._queued_actions[num]()
                 self._queued_actions[num] = None
-            
-            for item in self._queued_actions: # check if queue is empty
+
+            for item in self._queued_actions:  # check if queue is empty
                 if item is not None:
                     return
             await self.async_abort_queued_actions()
@@ -352,14 +356,19 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         else:
             action_entity = None
 
-        (res, cb_handle) = self.check_entity_availability(action_entity, async_handle_device_available)
+        (res, cb_handle) = self.check_entity_availability(
+            action_entity, async_handle_device_available
+        )
         if res:
             await self.async_execute_action(service_call)
             self._queued_actions.append(None)
         else:
             self._queued_actions.append(cb_handle)
-            _LOGGER.debug("Entity {} is not available right now, action {} will be queued.".format(service_call["entity_id"], service_call["service"]))
-
+            _LOGGER.debug(
+                "Entity {} is not available right now, action {} will be queued.".format(
+                    service_call["entity_id"], service_call["service"]
+                )
+            )
 
     async def async_execute_action(self, service_call):
 
@@ -381,10 +390,14 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                 return
 
         if "entity_id" in service_call:
-            _LOGGER.debug("Executing action {} for entity {}.".format(service_call["service"], service_call["entity_id"]))
+            _LOGGER.debug(
+                "Executing action {} for entity {}.".format(
+                    service_call["service"], service_call["entity_id"]
+                )
+            )
         else:
             _LOGGER.debug("Executing action {}.".format(service_call["service"]))
-        
+
         state = self.coordinator.hass.states.get(service_call["entity_id"])
 
         await async_call_from_config(
@@ -420,7 +433,9 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
         await self.async_remove()
 
-    async def async_service_edit(self, entries, actions, conditions=None, options=None, name=None):
+    async def async_service_edit(
+        self, entries, actions, conditions=None, options=None, name=None
+    ):
 
         data = DataCollection()
         data.import_from_service(
@@ -429,7 +444,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                 "actions": actions,
                 "conditions": conditions,
                 "options": options,
-                "name": name
+                "name": name,
             }
         )
         self.dataCollection = data
@@ -524,7 +539,6 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
         if not entity_list:
             entity_list = []
-        
         if action_entity:
             entity_list.append(action_entity)
 
@@ -533,24 +547,38 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
         async def async_check_entities_available(entity, old_state, new_state):
             result = True
-            _LOGGER.debug("Entity {} was updated to state={}, re-evaluating queued action.".format(entity, new_state.state))
+            _LOGGER.debug(
+                "Entity {} was updated to state={}, re-evaluating queued action.".format(
+                    entity, new_state.state
+                )
+            )
             for entity in entity_list:
                 state = self.coordinator.hass.states.get(entity)
-                if state is None or state.state == "unavailable" or state.state == "unknown":
+                if (
+                    state is None
+                    or state.state == "unavailable"
+                    or state.state == "unknown"
+                ):
                     result = False
                     break
-            
+
             if result:
                 await cb_func()
-        
+
         listener_handles = []
-        
+
         for entity in entity_list:
             state = self.coordinator.hass.states.get(entity)
-            if state is None or state.state == "unavailable" or state.state == "unknown":
-                listener_handle = async_track_state_change(self.coordinator.hass, entity, async_check_entities_available)
+            if (
+                state is None
+                or state.state == "unavailable"
+                or state.state == "unknown"
+            ):
+                listener_handle = async_track_state_change(
+                    self.coordinator.hass, entity, async_check_entities_available
+                )
                 listener_handles.append(listener_handle)
-        
+
         def listener_handle_remover():
             while len(listener_handles):
                 listener_handles.pop()()
@@ -559,4 +587,3 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             return (False, listener_handle_remover)
         else:
             return (True, None)
-        

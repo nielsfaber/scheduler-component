@@ -181,7 +181,11 @@ class DataCollection:
                 return i, True
 
         return None, False
-    
+
+    def is_timeslot(self, entry):
+        entry = self.entries[entry]
+        return "end_time" in entry
+
     def is_timeslot(self, entry):
         entry = self.entries[entry]
         return "end_time" in entry
