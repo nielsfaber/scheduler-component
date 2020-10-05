@@ -4,11 +4,12 @@ from datetime import timedelta
 
 from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant, asyncio
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import service
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.event import async_track_state_change
+from homeassistant.helpers.event import async_call_later, async_track_state_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
@@ -95,14 +96,48 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         self.workday_data = None
         self._sun_listeners = []
         self._workday_listeners = []
+        self._startup_listeners = []
+        self.is_started = False
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
-    async def async_update_sun_data(self):
-        async def async_sun_updated(entity, old_state, new_state):
+        async_track_state_change(self.hass, SUN_ENTITY, self.async_sun_updated)
+        async_track_state_change(self.hass, WORKDAY_ENTITY, self.async_workday_updated)
+
+        self.update_sun_data()
+        self.update_workday_data()
+
+        def handle_startup(event):
+            hass.add_job(
+                async_call_later,
+                self.hass,
+                5,
+                self.async_start_schedules,
+            )
+
+        hass.bus.async_listen(EVENT_HOMEASSISTANT_STARTED, handle_startup)
+
+    async def async_start_schedules(self, _=None):
+        if self.is_started:
+            return
+        self.is_started = True
+        _LOGGER.debug("Scheduler coordinator is ready")
+        while len(self._startup_listeners):
+            await self._startup_listeners.pop()()
+
+    def check_ready(self):
+        if not self.sun_data or not self.workday_data:
+            return
+        elif not self.is_started:
+            self.hass.add_job(self.async_start_schedules)
+
+    async def async_sun_updated(self, entity, old_state, new_state):
+        self.update_sun_data()
+        if self.sun_data:
             for item in self._sun_listeners:
                 await item(self.sun_data)
 
+    def update_sun_data(self):
         sun_state = self.hass.states.get(SUN_ENTITY)
         if not sun_state:
             return
@@ -113,19 +148,19 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             TIME_EVENT_DAWN: sun_state.attributes["next_dawn"],
             TIME_EVENT_DUSK: sun_state.attributes["next_dusk"],
         }
+        if not self.sun_data:
+            self.sun_data = sun_data
+            self.check_ready()
+        else:
+            self.sun_data = sun_data
 
-        if self.sun_data is None:
-            async_track_state_change(self.hass, SUN_ENTITY, async_sun_updated)
-            for item in self._sun_listeners:
-                await item(sun_data)
-
-        self.sun_data = sun_data
-
-    async def async_update_workday_data(self):
-        async def async_workday_updated(entity, old_state, new_state):
+    async def async_workday_updated(self, entity, old_state, new_state):
+        self.update_workday_data()
+        if self.workday_data:
             for item in self._workday_listeners:
                 await item(self.workday_data)
 
+    def update_workday_data(self):
         workday_state = self.hass.states.get(WORKDAY_ENTITY)
         if not workday_state:
             return
@@ -134,13 +169,11 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             "workdays": convert_days_to_numbers(workday_state.attributes["workdays"]),
             "today_is_workday": (workday_state.state == "on"),
         }
-
-        if self.workday_data is None:
-            async_track_state_change(self.hass, WORKDAY_ENTITY, async_workday_updated)
-            for item in self._workday_listeners:
-                await item(workday_data)
-
-        self.workday_data = workday_data
+        if not self.workday_data:
+            self.workday_data = workday_data
+            self.check_ready()
+        else:
+            self.workday_data = workday_data
 
     async def _async_update_data(self):
         """Update data via library."""
@@ -155,6 +188,9 @@ class SchedulerCoordinator(DataUpdateCoordinator):
 
     def add_workday_listener(self, cb_func):
         self._workday_listeners.append(cb_func)
+
+    def add_startup_listener(self, cb_func):
+        self._startup_listeners.append(cb_func)
 
     async def async_request_state(self, entity_id):
         state = self.hass.states.get(entity_id)

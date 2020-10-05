@@ -168,12 +168,29 @@ SCHEMA_ADD = vol.Schema(
             cv.ensure_list, vol.Length(min=1), [CONDITION_SCHEMA]
         ),
         vol.Optional("options"): OPTIONS_SCHEMA,
+        vol.Optional("name"): cv.string,
     }
 )
 
 SCHEMA_ENTITY = vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.entity_ids})
 
-SCHEMA_EDIT = SCHEMA_ADD.extend({vol.Required(ATTR_ENTITY_ID): cv.entity_ids})
+SCHEMA_EDIT = vol.Schema(
+    {
+        vol.Required(ATTR_ENTITY_ID): cv.entity_ids,
+        vol.Required("entries"): vol.All(
+            cv.ensure_list, vol.Length(min=1), [ENTRY_SCHEMA]
+        ),
+        vol.Required("actions"): vol.All(
+            cv.ensure_list, vol.Length(min=1), [ACTION_SCHEMA]
+        ),
+        vol.Optional("conditions"): vol.All(
+            cv.ensure_list, vol.Length(min=1), [CONDITION_SCHEMA]
+        ),
+        vol.Optional("options"): OPTIONS_SCHEMA,
+        vol.Optional("name"): cv.string,
+    }
+)
+
 
 SCHEMA_TEST = SCHEMA_ENTITY.extend(
     {vol.Optional("entries"): vol.All(int, vol.Range(min=0))}

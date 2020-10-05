@@ -131,15 +131,15 @@ class DataCollection:
 
             my_entry["actions"] = entry["actions"]
 
-            if "conditions" in entry:
+            if "conditions" in entry and entry["conditions"]:
                 my_entry["conditions"] = entry["conditions"]
 
-            if "options" in entry:
+            if "options" in entry and entry["options"]:
                 my_entry["options"] = entry["options"]
 
             self.entries.append(my_entry)
 
-        if "name" in data:
+        if "name" in data and data["name"]:
             self.name = data["name"]
 
         if "conditions" in data:
@@ -166,7 +166,7 @@ class DataCollection:
 
         for i in range(len(timestamps)):
             if timestamps[i] == closest_timestamp:
-                return i
+                return (i, timestamps[i])
 
     def has_overlapping_timeslot(self):
         """Check if there are timeslots which overlapping with now"""
@@ -181,6 +181,14 @@ class DataCollection:
                 return i, True
 
         return None, False
+
+    def is_timeslot(self, entry):
+        entry = self.entries[entry]
+        return "end_time" in entry
+
+    def is_timeslot(self, entry):
+        entry = self.entries[entry]
+        return "end_time" in entry
 
     def get_timestamp_for_entry(self, entry, sun_data=None, workday_data=None):
         """Get a timestamp for a specific entry"""
@@ -463,8 +471,8 @@ class DataCollection:
             if (
                 abs(delta) >= 60 and abs(delta) <= 3600
             ):  # only reschedule if the drift is more than 1 min, and not hours (next day)
-                return True
                 self.sun_data = sun_data
+                return True
 
         return False
 
@@ -490,18 +498,16 @@ class DataCollection:
         if not self.workday_data:
             self.workday_data = workday_data
             return False
-
         if entry is not None:
             ts_old = self.get_timestamp_for_entry(
                 entry, self.sun_data, self.workday_data
             )
             ts_new = self.get_timestamp_for_entry(entry, self.sun_data, workday_data)
-
             delta = (ts_old - ts_new).total_seconds()
 
             if abs(delta) >= 3600:  # item needs to be rescheduled
-                return True
                 self.workday_data = workday_data
+                return True
 
         return False
 
