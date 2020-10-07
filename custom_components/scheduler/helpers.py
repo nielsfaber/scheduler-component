@@ -167,6 +167,17 @@ def calculate_next_start_time(entry: dict, sun_data, workday_data):
         raise Exception("failed to calculate timestamp")
     return nexttime
 
+def delta_between_start_time_and_end_time(entry: dict, sun_data, workday_data):
+    """Get timedelta object beween start and end times for an entry"""
+
+    start_time = calculate_datetime_from_entry(entry["time"], sun_data)
+    end_time = calculate_datetime_from_entry(entry["end_time"], sun_data)
+
+    if end_time < start_time:
+        end_time = end_time + datetime.timedelta(days=1)
+
+    #TODO: take care of weekly/custom/schedules
+    return end_time - start_time
 
 def is_between_start_time_and_end_time(entry: dict, sun_data, workday_data):
     """Get datetime object with closest occurance based on time + weekdays input"""

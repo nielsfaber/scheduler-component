@@ -41,6 +41,7 @@ from .const import (
 )
 from .helpers import (
     calculate_next_start_time,
+    delta_between_start_time_and_end_time,
     is_between_start_time_and_end_time,
     parse_iso_timestamp,
     timedelta_to_string,
@@ -362,7 +363,7 @@ class DataCollection:
         return True
 
     def export_data(self):
-        output = {"entries": [], "actions": self.actions}
+        output = {"entries": [], "actions": self.actions, "deltas": []}
 
         def export_time(entry_time):
             if "at" in entry_time:
@@ -435,6 +436,7 @@ class DataCollection:
                 entry_str += "F{}".format(option_string)
 
             output["entries"].append(entry_str)
+            output["deltas"].append(delta_between_start_time_and_end_time(entry, self.sun_data, self.workday_data).seconds//60)
 
         if self.conditions:
             output["conditions"] = self.conditions
