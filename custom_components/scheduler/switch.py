@@ -6,21 +6,34 @@ import secrets
 from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
-from homeassistant.helpers.device_registry import \
-    async_entries_for_config_entry
+from homeassistant.helpers.device_registry import async_entries_for_config_entry
 from homeassistant.helpers.entity import ToggleEntity
 from homeassistant.helpers.entity_registry import async_entries_for_device
-from homeassistant.helpers.event import (async_call_later,
-                                         async_track_point_in_utc_time,
-                                         async_track_state_change)
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_point_in_utc_time,
+    async_track_state_change,
+)
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.service import async_call_from_config
 from homeassistant.util import dt as dt_util
 
-from .const import (DOMAIN, OPTION_RUN_ONCE, SCHEMA_EDIT, SCHEMA_ENTITY,
-                    SCHEMA_TEST, SERVICE_EDIT, SERVICE_REMOVE, SERVICE_TEST,
-                    STATE_DISABLED, STATE_INITIALIZING, STATE_INVALID,
-                    STATE_TRIGGERED, STATE_WAITING, VERSION)
+from .const import (
+    DOMAIN,
+    OPTION_RUN_ONCE,
+    SCHEMA_EDIT,
+    SCHEMA_ENTITY,
+    SCHEMA_TEST,
+    SERVICE_EDIT,
+    SERVICE_REMOVE,
+    SERVICE_TEST,
+    STATE_DISABLED,
+    STATE_INITIALIZING,
+    STATE_INVALID,
+    STATE_TRIGGERED,
+    STATE_WAITING,
+    VERSION,
+)
 from .datacollection import DataCollection
 
 _LOGGER = logging.getLogger(__name__)
