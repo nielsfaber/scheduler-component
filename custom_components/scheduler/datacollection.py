@@ -31,7 +31,6 @@ from .const import (
 from .helpers import (
     calculate_next_start_time,
     is_between_start_time_and_end_time,
-    parse_iso_timestamp,
     timedelta_to_string,
 )
 
@@ -66,7 +65,6 @@ class DataCollection:
             service = action["service"]
             service_data = {}
             entity = None
-            domain = None
 
             if "service_data" in action:
                 service_data = action["service_data"]
@@ -172,8 +170,6 @@ class DataCollection:
     def has_overlapping_timeslot(self):
         """Check if there are timeslots which overlapping with now"""
 
-        now = dt_util.now().replace(microsecond=0)
-
         for i in range(len(self.entries)):
             entry = self.entries[i]
             if "end_time" in entry and is_between_start_time_and_end_time(
@@ -182,10 +178,6 @@ class DataCollection:
                 return i, True
 
         return None, False
-
-    def is_timeslot(self, entry):
-        entry = self.entries[entry]
-        return "end_time" in entry
 
     def is_timeslot(self, entry):
         entry = self.entries[entry]

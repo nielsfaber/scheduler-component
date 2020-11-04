@@ -4,7 +4,6 @@ import logging
 import secrets
 
 from homeassistant.components.switch import DOMAIN as PLATFORM
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.device_registry import async_entries_for_config_entry
 from homeassistant.helpers.entity import ToggleEntity
