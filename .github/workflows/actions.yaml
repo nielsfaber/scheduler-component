@@ -8,22 +8,14 @@ on:
 
 jobs:
   validate_hacs:
-    name: "HACS"
+    name: "HACS powered validation"
     runs-on: ubuntu-latest
     steps:
       - uses: "actions/checkout@v2"
-      - name: HACS validation
-        uses: "hacs/integration/action@master"
+      - name: HACS Action
+        uses: "hacs/action@main"
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CATEGORY: "integration"
-  validate_hassfest:
-    name: "Hassfest"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: "actions/checkout@v2"
-      - name: Hassfest validation
-        uses: "home-assistant/actions/hassfest@master"
+          category: "integration"
   test_advice_flake8:
     name: "Test + advice with flake8"
     runs-on: ubuntu-latest
