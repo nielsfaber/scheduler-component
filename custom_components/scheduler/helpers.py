@@ -4,9 +4,10 @@ import math
 
 import homeassistant.util.dt as dt_util
 
+from .const import DAY_TYPE_CUSTOM, DAY_TYPE_DAILY, DAY_TYPE_WEEKEND, DAY_TYPE_WORKDAY
+
 _LOGGER = logging.getLogger(__name__)
 
-from .const import DAY_TYPE_CUSTOM, DAY_TYPE_DAILY, DAY_TYPE_WEEKEND, DAY_TYPE_WORKDAY
 
 
 def entity_exists_in_hass(hass, entity_id):

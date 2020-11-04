@@ -5,17 +5,6 @@ from functools import reduce
 
 import homeassistant.util.dt as dt_util
 
-_LOGGER = logging.getLogger(__name__)
-
-EntryPattern = re.compile(
-    "^([0-9]+)?D([0-9]+)?T([0-9SRDUW]+)T?([0-9SRDUW]+)?A([A0-9]+)+(C([C0-9]+))?(F([F0-9]+))?$"
-)
-
-FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
-SunTimePattern = re.compile(
-    "^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$"
-)
-
 from .const import (
     CONDITION_TYPE_AND,
     CONDITION_TYPE_OR,
@@ -45,6 +34,18 @@ from .helpers import (
     parse_iso_timestamp,
     timedelta_to_string,
 )
+
+_LOGGER = logging.getLogger(__name__)
+
+EntryPattern = re.compile(
+    "^([0-9]+)?D([0-9]+)?T([0-9SRDUW]+)T?([0-9SRDUW]+)?A([A0-9]+)+(C([C0-9]+))?(F([F0-9]+))?$"
+)
+
+FixedTimePattern = re.compile("^([0-9]{2})([0-9]{2})$")
+SunTimePattern = re.compile(
+    "^(([0-9]{2})([0-9]{2}))?([SRDUW]{2})(([0-9]{2})([0-9]{2}))?$"
+)
+
 
 
 class DataCollection:
