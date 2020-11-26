@@ -7,24 +7,20 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant, asyncio
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers import service
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_state_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
     DOMAIN,
-    SCHEMA_ADD,
-    SERVICE_ADD,
     SUN_ENTITY,
-    TIME_EVENT_DAWN,
-    TIME_EVENT_DUSK,
     TIME_EVENT_SUNRISE,
     TIME_EVENT_SUNSET,
     VERSION,
     WORKDAY_ENTITY,
 )
-from .helpers import convert_days_to_numbers
+from .store import async_get_registry
+from .websockets import async_register_websockets
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -39,7 +35,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up Scheduler integration from a config entry."""
     session = async_get_clientsession(hass)
 
-    coordinator = SchedulerCoordinator(hass, session, entry)
+    store = await async_get_registry(hass)
+    coordinator = SchedulerCoordinator(hass, session, entry, store)
 
     device_registry = await dr.async_get_registry(hass)
     device_registry.async_get_or_create(
@@ -52,7 +49,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = coordinator
+    hass.data[DOMAIN] = coordinator
+    _LOGGER.debug(hass.data[DOMAIN])
 
     if entry.unique_id is None:
         hass.config_entries.async_update_entry(entry, unique_id=coordinator.id)
@@ -61,14 +59,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.config_entries.async_forward_entry_setup(entry, PLATFORM)
     )
 
-    async def async_service_add(data):
-        # TODO: add validation
-
-        await coordinator.add_entity(data.data)
-
-    service.async_register_admin_service(
-        hass, DOMAIN, SERVICE_ADD, async_service_add, SCHEMA_ADD
-    )
+    await async_register_websockets(hass)
 
     return True
 
@@ -88,26 +79,28 @@ async def async_unload_entry(hass, entry):
 class SchedulerCoordinator(DataUpdateCoordinator):
     """Define an object to hold scheduler data."""
 
-    def __init__(self, hass, session, entry):
+    def __init__(self, hass, session, entry, store):
         """Initialize."""
         self.id = entry.unique_id
         self.hass = hass
+        self.store = store
         self.sun_data = None
         self.workday_data = None
         self._sun_listeners = []
         self._workday_listeners = []
         self._startup_listeners = []
         self.is_started = False
+        self._create_schedule_handler = None
 
         super().__init__(hass, _LOGGER, name=DOMAIN)
 
         async_track_state_change(self.hass, SUN_ENTITY, self.async_sun_updated)
         async_track_state_change(self.hass, WORKDAY_ENTITY, self.async_workday_updated)
 
-        self.update_sun_data()
-        self.update_workday_data()
-
         def handle_startup(event):
+            self.update_sun_data()
+            self.update_workday_data()
+
             hass.add_job(
                 async_call_later,
                 self.hass,
@@ -116,6 +109,14 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             )
 
         hass.bus.async_listen(EVENT_HOMEASSISTANT_STARTED, handle_startup)
+
+    def async_create_schedule(self, data):
+        res = self.store.async_create_schedule(data)
+        if res:
+            self._create_schedule_handler(res)
+
+    def async_edit_schedule(self, data):
+        _LOGGER.debug(data)
 
     async def async_start_schedules(self, _=None):
         if self.is_started:
@@ -145,8 +146,6 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         sun_data = {
             TIME_EVENT_SUNRISE: sun_state.attributes["next_rising"],
             TIME_EVENT_SUNSET: sun_state.attributes["next_setting"],
-            TIME_EVENT_DAWN: sun_state.attributes["next_dawn"],
-            TIME_EVENT_DUSK: sun_state.attributes["next_dusk"],
         }
         if not self.sun_data:
             self.sun_data = sun_data
@@ -166,7 +165,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             return
 
         workday_data = {
-            "workdays": convert_days_to_numbers(workday_state.attributes["workdays"]),
+            "workdays": workday_state.attributes["workdays"],
             "today_is_workday": (workday_state.state == "on"),
         }
         if not self.workday_data:
