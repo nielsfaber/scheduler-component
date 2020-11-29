@@ -1,4 +1,3 @@
-
 test:
   description: Perform direct execution of the scheduler rule, for testing the action.
   fields:
@@ -17,7 +16,7 @@ remove:
       example: "scheduler.scheduler_abcdef"
 
 add:
-  description: Add a scheduler entitity
+  description: Add a scheduler entity
   fields:
     actions:
       description: Action to be executed
@@ -27,7 +26,7 @@ add:
       example: '[{time: "12:00", actions: [0]}]'
 
 edit:
-  description: Edit a scheduler entitity
+  description: Edit a scheduler entity
   fields:
     entity_id:
       description: Identifier of the scheduler rule.
