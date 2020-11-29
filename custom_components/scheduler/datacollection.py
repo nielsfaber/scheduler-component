@@ -116,15 +116,15 @@ class DataCollection:
                 my_entry["days"]["type"] = entry["days"]["type"]
 
                 if entry["days"]["type"] == DAY_TYPE_CUSTOM:
-                    if not "list" in entry["days"]:
-                        my_entry["days"] = {"type": DAY_TYPE_DAILY}
-                    else:
+                    if "list" in entry["days"]:
                         days_list = entry["days"]["list"]
                         if len(days_list) == 1 and days_list[0] == 0:
                             my_entry["days"] = {"type": DAY_TYPE_DAILY}
                         else:
                             days_list.sort()
                             my_entry["days"]["list"] = days_list
+                    else:
+                        my_entry["days"] = {"type": DAY_TYPE_DAILY}
             else:
                 my_entry["days"] = {"type": DAY_TYPE_DAILY}
 
@@ -444,9 +444,8 @@ class DataCollection:
                     return True
 
             return False
-        else:
-            entry = self.entries[entry_num]
-            return "time" in entry and "event" in entry["time"]
+        entry = self.entries[entry_num]
+        return "time" in entry and "event" in entry["time"]
 
     def update_sun_data(self, sun_data, entry=None):
         if not self.sun_data:
@@ -480,12 +479,7 @@ class DataCollection:
             return False
         else:
             entry = self.entries[entry_num]
-            if entry["days"]["type"] == DAY_TYPE_WORKDAY:
-                return True
-            elif entry["days"]["type"] == DAY_TYPE_WEEKEND:
-                return True
-            else:
-                return False
+            return entry["days"]["type"] in (DAY_TYPE_WORKDAY, DAY_TYPE_WEEKEND)
 
     def update_workday_data(self, workday_data, entry=None):
         if not self.workday_data:
@@ -508,7 +502,7 @@ class DataCollection:
         """Get the conditions for a specific entry"""
         entity_list = []
         if not self.conditions or not "conditions" in self.entries[entry]:
-            return None
+            return
 
         for entry_condition in self.entries[entry]["conditions"]["list"]:
             entity = self.conditions[entry_condition]["entity"]
@@ -519,7 +513,7 @@ class DataCollection:
     def validate_conditions_for_entry(self, entry, states):
         """Validate the set of conditions against the results"""
         if not self.conditions or not "conditions" in self.entries[entry]:
-            return None
+            return
 
         results = []
         for item in self.entries[entry]["conditions"]["list"]:
@@ -561,15 +555,13 @@ class DataCollection:
             # _LOGGER.debug("validating condition for {}: required={}, actual={}, match_type={}, result={}".format(condition_item["entity"], required,actual,condition_item["match_type"], result))
             results.append(result)
 
-        condition_type = self.entries[entry]["conditions"]["type"]
-        if condition_type == CONDITION_TYPE_AND:
+        if self.entries[entry]["conditions"]["type"] == CONDITION_TYPE_AND:
             return all(results)
-        else:
-            return any(results)
+        return any(results)
 
     def get_option_config(self, entry, option):
         if not self.options or not "options" in self.entries[entry]:
-            return None
+            return
 
         options_list = list(self.options.keys())
 
@@ -578,4 +570,4 @@ class DataCollection:
             if option == option_key:
                 return self.options[option]
 
-        return None
+        return
