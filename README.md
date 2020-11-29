@@ -1,5 +1,5 @@
 # scheduler-component
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
 ## Introduction
 This is a custom component for Home Assistant, that is used for controlling your existing devices based on time.
 It works nicely together with the [Lovelace scheduler card](https://github.com/nielsfaber/scheduler-card).
@@ -13,8 +13,8 @@ Any entity in HA can be used for making a scheduler entity, together with any se
 
 #### Option 1: Via HACS
 
-Make sure you have HACS installed. If you don't, run `curl -sfSL https://hacs.xyz/install | bash -` in HA.
-Then choose Components under HACS. Choose the menu in the upper right, and select Custom repositories. Then add this repo's URL. You should be able to choose Install now.
+Make sure you have HACS installed. If you don't, run `curl -sfSL https://hacs.xyz/install | bash -` in HA.  
+Choose Integrations under HACS. Then hit the plus button, search for "scheduler", choose it, and hit install in HACS.
 
 #### Option 2: Manual
 Clone this repository or download the source code as a zip file and add/merge the `custom_components/` folder with its contents in your configuration directory.
