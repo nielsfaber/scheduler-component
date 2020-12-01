@@ -3,6 +3,8 @@ import datetime
 import logging
 
 from homeassistant.components.switch import DOMAIN as PLATFORM
+from homeassistant.const import STATE_ALARM_TRIGGERED as STATE_TRIGGERED
+from homeassistant.const import STATE_OFF, STATE_ON, SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import async_entries_for_config_entry
 from homeassistant.helpers.entity import ToggleEntity
@@ -16,30 +18,19 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.service import async_call_from_config
 from homeassistant.util import dt as dt_util
 
-from homeassistant.const import (
-    SUN_EVENT_SUNRISE,
-    SUN_EVENT_SUNSET,
-    STATE_OFF,
-    STATE_ON,
-    STATE_ALARM_TRIGGERED as STATE_TRIGGERED,
-)
 from .const import (
+    CONDITION_TYPE_AND,
+    DAY_TYPE_WEEKEND,
+    DAY_TYPE_WORKDAY,
     DOMAIN,
-    VERSION,
     MATCH_TYPE_ABOVE,
     MATCH_TYPE_BELOW,
     MATCH_TYPE_EQUAL,
     MATCH_TYPE_UNEQUAL,
-    CONDITION_TYPE_AND,
-    DAY_TYPE_WORKDAY,
-    DAY_TYPE_WEEKEND,
+    VERSION,
 )
+from .helpers import calculate_next_start_time, has_overlapping_timeslot
 from .migrate import migrate_old_entity
-
-from .helpers import (
-    has_overlapping_timeslot,
-    calculate_next_start_time,
-)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -108,9 +99,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 class ScheduleEntity(RestoreEntity, ToggleEntity):
     """Defines a base schedule entity."""
 
-    def __init__(
-        self, coordinator, hass, entity_id: str
-    ) -> None:
+    def __init__(self, coordinator, hass, entity_id: str) -> None:
         """Initialize the schedule entity."""
         self.coordinator = coordinator
         self.hass = hass
@@ -281,8 +270,12 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             timestamps.append(next_time)
 
         relative_time = list(map(lambda x: x - now, timestamps))
-        timeslot_order = sorted(range(len(relative_time)), key=lambda k: relative_time[k])
-        timestamps_sring = list(map(lambda x: dt_util.as_local(x).isoformat(), timestamps))
+        timeslot_order = sorted(
+            range(len(relative_time)), key=lambda k: relative_time[k]
+        )
+        timestamps_sring = list(
+            map(lambda x: dt_util.as_local(x).isoformat(), timestamps)
+        )
 
         self._next_entries = timeslot_order
         self._timestamps = timestamps_sring
@@ -306,7 +299,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             self._timeslots,
             weekdays=self.weekdays,
             sun_data=self.sun_data,
-            workday_data=self.workday_data
+            workday_data=self.workday_data,
         )
 
         if start_timeslot is not None:
@@ -437,7 +430,11 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             _LOGGER.debug("validating conditions for %s" % self.entity_id)
 
             results = self.validate_conditions_for_entry(current_slot["conditions"])
-            result = all(results) if current_slot["condition_type"] == CONDITION_TYPE_AND else any(results)
+            result = (
+                all(results)
+                if current_slot["condition_type"] == CONDITION_TYPE_AND
+                else any(results)
+            )
             if not result:
                 _LOGGER.debug("conditions have failed, skipping execution of actions")
                 return
@@ -524,23 +521,19 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
         await super().async_will_remove_from_hass()
 
-        entity_registry = (
-            await self.hass.helpers.entity_registry.async_get_registry()
-        )
+        entity_registry = await self.hass.helpers.entity_registry.async_get_registry()
         entity_registry.async_remove(self.entity_id)
 
     async def async_register_sun_updates(self):
         has_sun = False
         for item in self._timeslots:
-            if (
-                item["start"]
-                and (SUN_EVENT_SUNRISE in item["start"] or SUN_EVENT_SUNSET in item["start"])
+            if item["start"] and (
+                SUN_EVENT_SUNRISE in item["start"] or SUN_EVENT_SUNSET in item["start"]
             ):
                 has_sun = True
                 break
-            elif (
-                item["stop"]
-                and (SUN_EVENT_SUNRISE in item["stop"] or SUN_EVENT_SUNSET in item["stop"])
+            elif item["stop"] and (
+                SUN_EVENT_SUNRISE in item["stop"] or SUN_EVENT_SUNSET in item["stop"]
             ):
                 has_sun = True
                 break
@@ -555,13 +548,13 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                 start=slot["start"],
                 weekdays=self.weekdays,
                 sun_data=self.sun_data,
-                workday_data=self.workday_data
+                workday_data=self.workday_data,
             )
             ts_new = calculate_next_start_time(
                 start=slot["start"],
                 weekdays=self.weekdays,
                 sun_data=sun_data,
-                workday_data=self.workday_data
+                workday_data=self.workday_data,
             )
             delta = (ts_old - ts_new).total_seconds()
 
@@ -573,7 +566,10 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         self._registered_sun_update = True
 
     async def async_register_workday_updates(self):
-        if DAY_TYPE_WORKDAY not in self.weekdays and DAY_TYPE_WEEKEND not in self.weekdays:
+        if (
+            DAY_TYPE_WORKDAY not in self.weekdays
+            and DAY_TYPE_WEEKEND not in self.weekdays
+        ):
             return
 
         @callback
@@ -584,13 +580,13 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                 start=slot["start"],
                 weekdays=self.weekdays,
                 sun_data=self.sun_data,
-                workday_data=self.workday_data
+                workday_data=self.workday_data,
             )
             ts_new = calculate_next_start_time(
                 start=slot["start"],
                 weekdays=self.weekdays,
                 sun_data=self.sun_data,
-                workday_data=workday_data
+                workday_data=workday_data,
             )
             delta = (ts_old - ts_new).total_seconds()
 

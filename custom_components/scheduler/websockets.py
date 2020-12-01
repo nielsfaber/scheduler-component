@@ -1,17 +1,13 @@
-import voluptuous as vol
 import logging
 
+import voluptuous as vol
 from homeassistant.components import websocket_api
-from homeassistant.core import callback
-from homeassistant.components.http.data_validator import RequestDataValidator
-from homeassistant.helpers import config_validation as cv
 from homeassistant.components.http import HomeAssistantView
+from homeassistant.components.http.data_validator import RequestDataValidator
+from homeassistant.core import callback
+from homeassistant.helpers import config_validation as cv
 
-from .const import (
-    DOMAIN,
-    SCHEDULE_SCHEMA,
-)
-
+from .const import DOMAIN, SCHEDULE_SCHEMA
 
 _LOGGER = logging.getLogger(__name__)
 EVENT = "schedules_updated"
@@ -23,9 +19,7 @@ class SchedulesAddView(HomeAssistantView):
     url = "/api/scheduler/add"
     name = "api:scheduler:add"
 
-    @RequestDataValidator(
-        SCHEDULE_SCHEMA
-    )
+    @RequestDataValidator(SCHEDULE_SCHEMA)
     def post(self, request, data):
         """Handle config update request."""
         hass = request.app["hass"]
@@ -42,9 +36,7 @@ class SchedulesEditView(HomeAssistantView):
     name = "api:scheduler:edit"
 
     @RequestDataValidator(
-        SCHEDULE_SCHEMA.extend({
-            vol.Required("schedule_id"): cv.string
-        })
+        SCHEDULE_SCHEMA.extend({vol.Required("schedule_id"): cv.string})
     )
     async def post(self, request, data):
         """Handle config update request."""
@@ -61,11 +53,7 @@ class SchedulesRemoveView(HomeAssistantView):
     url = "/api/scheduler/remove"
     name = "api:scheduler:remove"
 
-    @RequestDataValidator(
-        vol.Schema({
-            vol.Required("schedule_id"): cv.string
-        })
-    )
+    @RequestDataValidator(vol.Schema({vol.Required("schedule_id"): cv.string}))
     async def post(self, request, data):
         """Handle config update request."""
         hass = request.app["hass"]
@@ -112,7 +100,7 @@ async def async_register_websockets(hass):
         websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
             {
                 vol.Required("type"): "scheduler/item",
-                vol.Required("schedule_id"): cv.string
+                vol.Required("schedule_id"): cv.string,
             }
         ),
     )

@@ -4,23 +4,18 @@ from datetime import timedelta
 
 from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.const import (
+    EVENT_HOMEASSISTANT_STARTED,
+    SUN_EVENT_SUNRISE,
+    SUN_EVENT_SUNSET,
+)
 from homeassistant.core import HomeAssistant, asyncio
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_state_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from homeassistant.const import (
-    SUN_EVENT_SUNRISE,
-    SUN_EVENT_SUNSET,
-)
-from .const import (
-    DOMAIN,
-    SUN_ENTITY,
-    VERSION,
-    WORKDAY_ENTITY,
-)
+from .const import DOMAIN, SUN_ENTITY, VERSION, WORKDAY_ENTITY
 from .store import async_get_registry
 from .websockets import async_register_websockets
 
@@ -51,10 +46,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN] = {
-        "coordinator": coordinator,
-        "schedules": []
-    }
+    hass.data[DOMAIN] = {"coordinator": coordinator, "schedules": []}
 
     if entry.unique_id is None:
         hass.config_entries.async_update_entry(entry, unique_id=coordinator.id)
@@ -118,7 +110,9 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         items = self.hass.data[DOMAIN]["schedules"]
         for item in items:
             if item.state_attributes["schedule_id"] == schedule_id:
-                config = self.store.async_get_schedule(item.state_attributes["schedule_id"])
+                config = self.store.async_get_schedule(
+                    item.state_attributes["schedule_id"]
+                )
                 config.update(item.async_get_entity_state())
                 return config
 

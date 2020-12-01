@@ -1,15 +1,14 @@
 import logging
-import attr
 import secrets
 from collections import OrderedDict
 from typing import MutableMapping, cast
-from homeassistant.loader import bind_hass
+
+import attr
 from homeassistant.core import callback
 from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.loader import bind_hass
 
-from .const import (
-    DOMAIN,
-)
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,8 +115,7 @@ class ScheduleStorage:
     @callback
     def _data_to_save(self) -> dict:
         """Return data for the registry for schedules to store in a file."""
-        store_data = {
-        }
+        store_data = {}
 
         store_data["schedules"] = []
 
@@ -134,7 +132,7 @@ class ScheduleStorage:
                     "stop": slot.stop,
                     "conditions": [],
                     "condition_type": slot.condition_type,
-                    "actions": []
+                    "actions": [],
                 }
                 if slot.conditions:
                     for condition in slot.conditions:

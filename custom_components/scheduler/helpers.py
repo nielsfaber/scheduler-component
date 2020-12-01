@@ -4,23 +4,14 @@ import math
 import re
 
 import homeassistant.util.dt as dt_util
+from homeassistant.const import SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
 
-from .const import (
-    DAY_TYPE_DAILY,
-    DAY_TYPE_WORKDAY,
-    DAY_TYPE_WEEKEND,
-)
+from .const import DAY_TYPE_DAILY, DAY_TYPE_WEEKEND, DAY_TYPE_WORKDAY
 
-from homeassistant.const import (
-    SUN_EVENT_SUNRISE,
-    SUN_EVENT_SUNSET,
-)
 _LOGGER = logging.getLogger(__name__)
 
 
-OffsetTimePattern = re.compile(
-    "^([a-z]+)([-|\+]{1})([0-9:]+)$"
-)
+OffsetTimePattern = re.compile("^([a-z]+)([-|\+]{1})([0-9:]+)$")
 
 
 def entity_exists_in_hass(hass, entity_id):
@@ -66,7 +57,9 @@ def calculate_datetime_from_entry(time: str, sun_data=None):
         today = dt_util.start_of_local_day()
         time_obj = dt_util.as_utc(datetime.datetime.combine(today, time))
     else:
-        sun_event = SUN_EVENT_SUNRISE if res.group(1) == SUN_EVENT_SUNRISE else SUN_EVENT_SUNSET
+        sun_event = (
+            SUN_EVENT_SUNRISE if res.group(1) == SUN_EVENT_SUNRISE else SUN_EVENT_SUNSET
+        )
         offset_sign = res.group(2)
         offset_string = res.group(3)
 
@@ -152,7 +145,9 @@ def is_allowed_day(date_obj: datetime.datetime, weekdays=None, workday_data=None
     return day in weekdays
 
 
-def calculate_next_start_time(start=None, weekdays=None, sun_data=None, workday_data=None):
+def calculate_next_start_time(
+    start=None, weekdays=None, sun_data=None, workday_data=None
+):
     """Get datetime object with closest occurance based on time + weekdays input"""
     nexttime = calculate_datetime_from_entry(start, sun_data=sun_data)
     now = dt_util.now().replace(microsecond=0)
@@ -167,7 +162,8 @@ def calculate_next_start_time(start=None, weekdays=None, sun_data=None, workday_
 
     # check if timer is restricted in days of the week
     while (
-        not is_allowed_day(nexttime, weekdays=weekdays, workday_data=workday_data) and iterations < 100
+        not is_allowed_day(nexttime, weekdays=weekdays, workday_data=workday_data)
+        and iterations < 100
     ):
         nexttime = nexttime + datetime.timedelta(days=1)
         iterations = iterations + 1
@@ -178,7 +174,9 @@ def calculate_next_start_time(start=None, weekdays=None, sun_data=None, workday_
     return nexttime
 
 
-def is_between_start_time_and_end_time(start=None, stop=None, weekdays=None, sun_data=None, workday_data=None):
+def is_between_start_time_and_end_time(
+    start=None, stop=None, weekdays=None, sun_data=None, workday_data=None
+):
     """Get datetime object with closest occurance based on time + weekdays input"""
 
     start_time = calculate_datetime_from_entry(start, sun_data)
@@ -200,7 +198,8 @@ def is_between_start_time_and_end_time(start=None, stop=None, weekdays=None, sun
 
     # check if timer is restricted in days of the week
     while (
-        not is_allowed_day(start_time, weekdays=weekdays, workday_data=workday_data) and iterations < 100
+        not is_allowed_day(start_time, weekdays=weekdays, workday_data=workday_data)
+        and iterations < 100
     ):
         start_time = start_time + datetime.timedelta(days=1)
         end_time = end_time + datetime.timedelta(days=1)
@@ -220,7 +219,7 @@ def is_between_start_time_and_end_time(start=None, stop=None, weekdays=None, sun
 
 def parse_iso_timestamp(time_string):
     time_obj = datetime.datetime.strptime(
-        time_string[: len(time_string) - 3] + time_string[len(time_string) - 2:],
+        time_string[: len(time_string) - 3] + time_string[len(time_string) - 2 :],
         "%Y-%m-%dT%H:%M:%S%z",
     )
 
@@ -232,12 +231,16 @@ def has_overlapping_timeslot(slots, weekdays=None, sun_data=None, workday_data=N
 
     for i in range(len(slots)):
         slot = slots[i]
-        if "stop" in slot and slot["stop"] and is_between_start_time_and_end_time(
-            start=slot["start"],
-            stop=slot["stop"],
-            weekdays=weekdays,
-            sun_data=sun_data,
-            workday_data=workday_data,
+        if (
+            "stop" in slot
+            and slot["stop"]
+            and is_between_start_time_and_end_time(
+                start=slot["start"],
+                stop=slot["stop"],
+                weekdays=weekdays,
+                sun_data=sun_data,
+                workday_data=workday_data,
+            )
         ):
             return i
 
