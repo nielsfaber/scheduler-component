@@ -20,8 +20,8 @@ EVENT = "schedules_updated"
 class SchedulesAddView(HomeAssistantView):
     """Login to Home Assistant cloud."""
 
-    url = "/api/schedules/add"
-    name = "api:schedules:add"
+    url = "/api/scheduler/add"
+    name = "api:scheduler:add"
 
     @RequestDataValidator(
         SCHEDULE_SCHEMA
@@ -29,7 +29,7 @@ class SchedulesAddView(HomeAssistantView):
     def post(self, request, data):
         """Handle config update request."""
         hass = request.app["hass"]
-        coordinator = hass.data[DOMAIN]
+        coordinator = hass.data[DOMAIN]["coordinator"]
         coordinator.async_create_schedule(data)
         request.app["hass"].bus.async_fire(EVENT)
         return self.json({"success": True})
@@ -38,8 +38,8 @@ class SchedulesAddView(HomeAssistantView):
 class SchedulesEditView(HomeAssistantView):
     """Login to Home Assistant cloud."""
 
-    url = "/api/schedules/edit"
-    name = "api:schedules:edit"
+    url = "/api/scheduler/edit"
+    name = "api:scheduler:edit"
 
     @RequestDataValidator(
         SCHEDULE_SCHEMA.extend({
@@ -49,7 +49,7 @@ class SchedulesEditView(HomeAssistantView):
     async def post(self, request, data):
         """Handle config update request."""
         hass = request.app["hass"]
-        coordinator = hass.data[DOMAIN]
+        coordinator = hass.data[DOMAIN]["coordinator"]
         coordinator.async_edit_schedule(data)
         request.app["hass"].bus.async_fire(EVENT)
         return self.json({"success": True})
@@ -58,8 +58,8 @@ class SchedulesEditView(HomeAssistantView):
 class SchedulesRemoveView(HomeAssistantView):
     """Login to Home Assistant cloud."""
 
-    url = "/api/schedules/remove"
-    name = "api:schedules:remove"
+    url = "/api/scheduler/remove"
+    name = "api:scheduler:remove"
 
     @RequestDataValidator(
         vol.Schema({
@@ -69,7 +69,7 @@ class SchedulesRemoveView(HomeAssistantView):
     async def post(self, request, data):
         """Handle config update request."""
         hass = request.app["hass"]
-        coordinator = hass.data[DOMAIN]
+        coordinator = hass.data[DOMAIN]["coordinator"]
         coordinator.async_remove_schedule(data["schedule_id"])
         request.app["hass"].bus.async_fire(EVENT)
         return self.json({"success": True})
@@ -77,10 +77,19 @@ class SchedulesRemoveView(HomeAssistantView):
 
 @callback
 def websocket_get_schedules(hass, connection, msg):
-    """Publish schedules list data."""
-    coordinator = hass.data[DOMAIN]
-    schedules = coordinator.store.async_get_schedules()
+    """Publish scheduler list data."""
+    coordinator = hass.data[DOMAIN]["coordinator"]
+    schedules = coordinator.async_get_schedules()
     connection.send_result(msg["id"], schedules)
+
+
+@callback
+def websocket_get_schedule_item(hass, connection, msg):
+    """Publish scheduler list data."""
+    coordinator = hass.data[DOMAIN]["coordinator"]
+    item = msg["schedule_id"]
+    data = coordinator.async_get_schedule(item)
+    connection.send_result(msg["id"], data)
 
 
 async def async_register_websockets(hass):
@@ -90,9 +99,20 @@ async def async_register_websockets(hass):
     hass.http.register_view(SchedulesRemoveView)
 
     hass.components.websocket_api.async_register_command(
-        "schedules",
+        "scheduler",
         websocket_get_schedules,
         websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
-            {vol.Required("type"): "schedules"}
+            {vol.Required("type"): "scheduler"}
+        ),
+    )
+
+    hass.components.websocket_api.async_register_command(
+        "scheduler/item",
+        websocket_get_schedule_item,
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): "scheduler/item",
+                vol.Required("schedule_id"): cv.string
+            }
         ),
     )

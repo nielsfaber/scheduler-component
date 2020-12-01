@@ -100,7 +100,7 @@ class ScheduleStorage:
                     schedule_id=entry["schedule_id"],
                     weekdays=entry["weekdays"],
                     timeslots=entry["timeslots"],
-                    repeat_type=entry["repeat_type"]
+                    repeat_type=entry["repeat_type"],
                 )
         self.schedules = schedules
 
@@ -126,7 +126,7 @@ class ScheduleStorage:
                 "schedule_id": entry.schedule_id,
                 "timeslots": [],
                 "weekdays": entry.weekdays,
-                "repeat_type": entry.repeat_type
+                "repeat_type": entry.repeat_type,
             }
             for slot in entry.timeslots:
                 timeslot = {
@@ -157,6 +157,14 @@ class ScheduleStorage:
         """Get an existing ScheduleEntry by id."""
         res = self.schedules.get(entity_id)
         return attr.asdict(res) if res else None
+
+    @callback
+    def async_get_schedules(self) -> dict:
+        """Get an existing ScheduleEntry by id."""
+        res = {}
+        for (key, val) in self.schedules.items():
+            res[key] = attr.asdict(val)
+        return res
 
     @callback
     def async_create_schedule(self, data: dict) -> ScheduleEntry:

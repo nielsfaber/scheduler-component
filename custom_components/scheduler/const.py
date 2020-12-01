@@ -38,7 +38,7 @@ ACTION_SCHEMA = vol.Schema(
     {
         vol.Optional("entity_id"): cv.entity_id,
         vol.Optional("service"): cv.entity_id,
-        vol.Optional("service_data"): dict,
+        vol.Optional("data"): dict,
     }
 )
 

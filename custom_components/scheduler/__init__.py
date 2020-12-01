@@ -11,11 +11,13 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_state_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
+from homeassistant.const import (
+    SUN_EVENT_SUNRISE,
+    SUN_EVENT_SUNSET,
+)
 from .const import (
     DOMAIN,
     SUN_ENTITY,
-    TIME_EVENT_SUNRISE,
-    TIME_EVENT_SUNSET,
     VERSION,
     WORKDAY_ENTITY,
 )
@@ -49,8 +51,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN] = coordinator
-    _LOGGER.debug(hass.data[DOMAIN])
+    hass.data[DOMAIN] = {
+        "coordinator": coordinator,
+        "schedules": []
+    }
 
     if entry.unique_id is None:
         hass.config_entries.async_update_entry(entry, unique_id=coordinator.id)
@@ -72,7 +76,7 @@ async def async_unload_entry(hass, entry):
         )
     )
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+        hass.data[DOMAIN] = {}
     return unload_ok
 
 
@@ -110,6 +114,23 @@ class SchedulerCoordinator(DataUpdateCoordinator):
 
         hass.bus.async_listen(EVENT_HOMEASSISTANT_STARTED, handle_startup)
 
+    def async_get_schedule(self, schedule_id: str):
+        items = self.hass.data[DOMAIN]["schedules"]
+        for item in items:
+            if item.state_attributes["schedule_id"] == schedule_id:
+                config = self.store.async_get_schedule(item.state_attributes["schedule_id"])
+                config.update(item.async_get_entity_state())
+                return config
+
+    def async_get_schedules(self):
+        items = self.hass.data[DOMAIN]["schedules"]
+        data = []
+        for item in items:
+            config = self.store.async_get_schedule(item.state_attributes["schedule_id"])
+            config.update(item.async_get_entity_state())
+            data.append(config)
+        return data
+
     def async_create_schedule(self, data):
         res = self.store.async_create_schedule(data)
         if res:
@@ -144,8 +165,8 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             return
 
         sun_data = {
-            TIME_EVENT_SUNRISE: sun_state.attributes["next_rising"],
-            TIME_EVENT_SUNSET: sun_state.attributes["next_setting"],
+            SUN_EVENT_SUNRISE: sun_state.attributes["next_rising"],
+            SUN_EVENT_SUNSET: sun_state.attributes["next_setting"],
         }
         if not self.sun_data:
             self.sun_data = sun_data
