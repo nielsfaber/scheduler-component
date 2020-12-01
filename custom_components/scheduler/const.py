@@ -38,7 +38,7 @@ ACTION_SCHEMA = vol.Schema(
     {
         vol.Optional("entity_id"): cv.entity_id,
         vol.Optional("service"): cv.entity_id,
-        vol.Optional("data"): dict,
+        vol.Optional("service_data"): dict,
     }
 )
 
@@ -47,9 +47,7 @@ TIMESLOT_SCHEMA = vol.Schema(
         vol.Required("start"): cv.string,
         vol.Optional("stop"): cv.string,
         vol.Optional("conditions"): vol.All(
-            cv.ensure_list,
-            vol.Length(min=1),
-            [CONDITION_SCHEMA]
+            cv.ensure_list, vol.Length(min=1), [CONDITION_SCHEMA]
         ),
         vol.Optional("condition_type"): vol.In(
             [
@@ -58,9 +56,7 @@ TIMESLOT_SCHEMA = vol.Schema(
             ]
         ),
         vol.Required("actions"): vol.All(
-            cv.ensure_list,
-            vol.Length(min=1),
-            [ACTION_SCHEMA]
+            cv.ensure_list, vol.Length(min=1), [ACTION_SCHEMA]
         ),
     }
 )
@@ -82,14 +78,12 @@ SCHEDULE_SCHEMA = vol.Schema(
                     "sun",
                     DAY_TYPE_WORKDAY,
                     DAY_TYPE_WEEKEND,
-                    DAY_TYPE_DAILY
+                    DAY_TYPE_DAILY,
                 ]
-            )
+            ),
         ),
         vol.Required("timeslots"): vol.All(
-            cv.ensure_list,
-            vol.Length(min=1),
-            [TIMESLOT_SCHEMA]
+            cv.ensure_list, vol.Length(min=1), [TIMESLOT_SCHEMA]
         ),
     }
 )

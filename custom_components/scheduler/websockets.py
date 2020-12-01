@@ -1,17 +1,13 @@
-import voluptuous as vol
 import logging
 
+import voluptuous as vol
 from homeassistant.components import websocket_api
-from homeassistant.core import callback
-from homeassistant.components.http.data_validator import RequestDataValidator
-from homeassistant.helpers import config_validation as cv
 from homeassistant.components.http import HomeAssistantView
+from homeassistant.components.http.data_validator import RequestDataValidator
+from homeassistant.core import callback
+from homeassistant.helpers import config_validation as cv
 
-from .const import (
-    DOMAIN,
-    SCHEDULE_SCHEMA,
-)
-
+from .const import DOMAIN, SCHEDULE_SCHEMA
 
 _LOGGER = logging.getLogger(__name__)
 EVENT = "schedules_updated"

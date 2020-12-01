@@ -1,17 +1,10 @@
-
+import copy
 import logging
 import re
-import copy
 
-from .const import (
-    CONDITION_TYPE_AND,
-    CONDITION_TYPE_OR,
-)
+from homeassistant.const import SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
 
-from homeassistant.const import (
-    SUN_EVENT_SUNRISE,
-    SUN_EVENT_SUNSET,
-)
+from .const import CONDITION_TYPE_AND, CONDITION_TYPE_OR
 
 ENTRY_PATTERN_SUNRISE = "SR"
 ENTRY_PATTERN_SUNSET = "SS"
@@ -95,9 +88,7 @@ def migrate_old_entity(data: dict, entity_id: str):
         elif days_list:
             days_list = list(res.group(2))
             days_list = [int(i) for i in days_list]
-            if (
-                len(days_list) == 1 and days_list[0] == 0
-            ):  # for backwards compatibility
+            if len(days_list) == 1 and days_list[0] == 0:  # for backwards compatibility
                 weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
             else:
                 weekdays = []
@@ -135,7 +126,9 @@ def migrate_old_entity(data: dict, entity_id: str):
                 if "service" in item:
                     service = item["service"]
                     if "." not in service and "." in action["entity_id"]:
-                        service = "{}.{}".format(action["entity_id"].split(".").pop(0), service)
+                        service = "{}.{}".format(
+                            action["entity_id"].split(".").pop(0), service
+                        )
                     action["service"] = service
                     del item["service"]
                 if item:
@@ -166,7 +159,7 @@ def migrate_old_entity(data: dict, entity_id: str):
                         "entity_id": item["entity"],
                         "attribute": "state",
                         "value": item["state"],
-                        "match_type": item["match_type"]
+                        "match_type": item["match_type"],
                     }
                     conditions.append(condition)
             my_entry["conditions"] = conditions
@@ -183,5 +176,5 @@ def migrate_old_entity(data: dict, entity_id: str):
         "schedule_id": entity_id.replace("schedule_", ""),
         "weekdays": weekdays,
         "timeslots": entries,
-        "repeat_type": repeat_type
+        "repeat_type": repeat_type,
     }

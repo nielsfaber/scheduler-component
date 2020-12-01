@@ -108,9 +108,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 class ScheduleEntity(RestoreEntity, ToggleEntity):
     """Defines a base schedule entity."""
 
-    def __init__(
-        self, coordinator, hass, entity_id: str
-    ) -> None:
+    def __init__(self, coordinator, hass, entity_id: str) -> None:
         """Initialize the schedule entity."""
         self.coordinator = coordinator
         self.hass = hass
@@ -532,15 +530,13 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     async def async_register_sun_updates(self):
         has_sun = False
         for item in self._timeslots:
-            if (
-                item["start"]
-                and (SUN_EVENT_SUNRISE in item["start"] or SUN_EVENT_SUNSET in item["start"])
+            if item["start"] and (
+                SUN_EVENT_SUNRISE in item["start"] or SUN_EVENT_SUNSET in item["start"]
             ):
                 has_sun = True
                 break
-            elif (
-                item["stop"]
-                and (SUN_EVENT_SUNRISE in item["stop"] or SUN_EVENT_SUNSET in item["stop"])
+            elif item["stop"] and (
+                SUN_EVENT_SUNRISE in item["stop"] or SUN_EVENT_SUNSET in item["stop"]
             ):
                 has_sun = True
                 break

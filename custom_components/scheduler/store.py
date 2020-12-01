@@ -116,8 +116,7 @@ class ScheduleStorage:
     @callback
     def _data_to_save(self) -> dict:
         """Return data for the registry for schedules to store in a file."""
-        store_data = {
-        }
+        store_data = {}
 
         store_data["schedules"] = []
 
@@ -134,7 +133,7 @@ class ScheduleStorage:
                     "stop": slot.stop,
                     "conditions": [],
                     "condition_type": slot.condition_type,
-                    "actions": []
+                    "actions": [],
                 }
                 if slot.conditions:
                     for condition in slot.conditions:
