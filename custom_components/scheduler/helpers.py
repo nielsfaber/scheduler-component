@@ -2,7 +2,6 @@ import datetime
 import logging
 import math
 import re
-from functools import reduce
 
 import homeassistant.util.dt as dt_util
 from homeassistant.const import SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
@@ -246,28 +245,3 @@ def has_overlapping_timeslot(slots, weekdays=None, sun_data=None, workday_data=N
             return i
 
     return None
-
-
-def calculate_next_timeslot(slots, weekdays=None, sun_data=None, workday_data=None):
-    """Find the closest timer from now"""
-    now = dt_util.now().replace(microsecond=0)
-    timestamps = []
-
-    for slot in slots:
-        next_time = calculate_next_start_time(
-            start=slot["start"],
-            stop=slot["stop"] if "stop" in slot else None,
-            weekdays=weekdays,
-            sun_data=sun_data,
-            workday_data=workday_data,
-        )
-
-        timestamps.append(next_time)
-
-    closest_timestamp = reduce(
-        lambda x, y: x if (x - now) < (y - now) else y, timestamps
-    )
-
-    for i in range(len(timestamps)):
-        if timestamps[i] == closest_timestamp:
-            return (i, timestamps[i])

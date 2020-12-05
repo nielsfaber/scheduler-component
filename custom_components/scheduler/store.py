@@ -157,6 +157,14 @@ class ScheduleStorage:
         return attr.asdict(res) if res else None
 
     @callback
+    def async_get_schedules(self) -> dict:
+        """Get an existing ScheduleEntry by id."""
+        res = {}
+        for (key, val) in self.schedules.items():
+            res[key] = attr.asdict(val)
+        return res
+
+    @callback
     def async_create_schedule(self, data: dict) -> ScheduleEntry:
         """Create a new ScheduleEntry."""
         if "schedule_id" in data:

@@ -29,7 +29,7 @@ from .const import (
     MATCH_TYPE_UNEQUAL,
     VERSION,
 )
-from .helpers import calculate_next_timeslot, has_overlapping_timeslot
+from .helpers import calculate_next_start_time, has_overlapping_timeslot
 from .migrate import migrate_old_entity
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the Scheduler switch devices. """
 
-    coordinator = hass.data[DOMAIN]
+    coordinator = hass.data[DOMAIN]["coordinator"]
 
     entities = []
 
@@ -75,6 +75,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         entities.append(ScheduleEntity(coordinator, hass, entry.unique_id))
 
     async_add_entities(entities)
+    hass.data[DOMAIN]["schedules"] = entities
 
     @callback
     def async_add_entity(data):
@@ -118,6 +119,8 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         self._schedule_id = None
         self._weekdays = None
         self._timeslots = None
+        self._timestamps = []
+        self._next_entries = []
 
     @property
     def device_info(self) -> dict:
@@ -194,6 +197,16 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                     entities.append(action["entity_id"])
         return entities
 
+    @callback
+    def async_get_entity_state(self):
+        data = {
+            "entity_id": self.entity_id,
+            "state": self._state,
+            "next_entries": self._next_entries,
+            "timestamps": self._timestamps,
+        }
+        return data
+
     async def async_added_to_hass(self):
         """Connect to dispatcher listening for entity data notifications."""
         await super().async_added_to_hass()
@@ -221,21 +234,18 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
         await self.async_register_workday_updates()
         await self.async_register_sun_updates()
-        # async def async_startup_finished():
-        #     await self.async_start_timer()
 
-        # if not self.coordinator.is_started:
-        #     self.coordinator.add_startup_listener(async_startup_finished)
-        # else:
-        #     await self.async_start_timer()
+        async def async_startup_finished():
+            await self.async_start_timer()
+
+        if not self.coordinator.is_started:
+            self.coordinator.add_startup_listener(async_startup_finished)
+        else:
+            await self.async_start_timer()
 
     async def async_turn_off(self):
         if self._state != STATE_OFF:
             self._state = STATE_OFF
-            if self._timer:
-                self._timer()
-                self._timer = None
-                self._next_trigger = None
             await self.async_abort_queued_actions()
             await self.async_update_ha_state()
 
@@ -244,10 +254,40 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             self._state = STATE_ON
             await self.async_start_timer()
 
+    def calculate_next_timeslot(self):
+        """Find the closest timer from now"""
+        now = dt_util.now().replace(microsecond=0)
+        timestamps = []
+
+        for slot in self._timeslots:
+            next_time = calculate_next_start_time(
+                start=slot["start"],
+                weekdays=self.weekdays,
+                sun_data=self.sun_data,
+                workday_data=self.workday_data,
+            )
+
+            timestamps.append(next_time)
+
+        relative_time = list(map(lambda x: x - now, timestamps))
+        timeslot_order = sorted(
+            range(len(relative_time)), key=lambda k: relative_time[k]
+        )
+        timestamps_sring = list(
+            map(lambda x: dt_util.as_local(x).isoformat(), timestamps)
+        )
+
+        self._next_entries = timeslot_order
+        self._timestamps = timestamps_sring
+
+        next_slot = timeslot_order[0]
+        return (next_slot, timestamps[next_slot])
+
     async def async_start_timer(self):
         """Search the entries for nearest timepoint and start timer."""
-        if self._state == STATE_OFF:
-            return
+        if self._timer:
+            self._timer()
+            self._timer = None
 
         # make sure to use latest-greatest workday / sun info
         self.workday_data = self.coordinator.workday_data
@@ -268,20 +308,14 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             self._entry = start_timeslot
             await self.async_execute_command()
 
-        (self._entry, timestamp) = calculate_next_timeslot(
-            self._timeslots,
-            weekdays=self.weekdays,
-            sun_data=self.sun_data,
-            workday_data=self.workday_data,
-        )
+        (self._entry, timestamp) = self.calculate_next_timeslot()
+
         self._next_trigger = dt_util.as_local(timestamp).isoformat()
 
         self._timer = async_track_point_in_utc_time(
             self.hass, self.async_timer_finished, timestamp
         )
         _LOGGER.debug("The next timer is set for %s" % self._next_trigger)
-
-        self._state = STATE_ON
 
         await self.async_update_ha_state()
         self.async_write_ha_state()
@@ -292,19 +326,18 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         """Callback for timer finished."""
 
         self._timer = None
-        if self._state != STATE_ON:
-            return
+        if self._state == STATE_ON:
 
-        _LOGGER.debug("timer for %s is triggered" % self.entity_id)
+            _LOGGER.debug("timer for %s is triggered" % self.entity_id)
 
-        self._state = STATE_TRIGGERED
-        self._next_trigger = None
-        await self.async_update_ha_state()
+            self._state = STATE_TRIGGERED
+            self._next_trigger = None
+            await self.async_update_ha_state()
 
-        # cancel previous actions (previous timeslot)
-        await self.async_abort_queued_actions()
-        # execute the action
-        await self.async_execute_command()
+            # cancel previous actions (previous timeslot)
+            await self.async_abort_queued_actions()
+            # execute the action
+            await self.async_execute_command()
 
         # if (
         #     self.dataCollection.get_option_config(self._entry, OPTION_RUN_ONCE)
@@ -327,9 +360,6 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     async def async_cooldown_timer_finished(self, time):
         """Restart the timer, now that the cooldown timer finished."""
         self._timer = None
-
-        if self._state != STATE_TRIGGERED:
-            return
 
         await self.async_start_timer()
 
@@ -512,18 +542,15 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
         @callback
         async def async_sun_updated(sun_data):
-            if self._state != STATE_ON:
-                return
-
             slot = self._timeslots[self._entry]
 
-            ts_old = calculate_next_timeslot(
+            ts_old = calculate_next_start_time(
                 start=slot["start"],
                 weekdays=self.weekdays,
                 sun_data=self.sun_data,
                 workday_data=self.workday_data,
             )
-            ts_new = calculate_next_timeslot(
+            ts_new = calculate_next_start_time(
                 start=slot["start"],
                 weekdays=self.weekdays,
                 sun_data=sun_data,
@@ -533,10 +560,6 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
             if abs(delta) >= 60 and abs(delta) <= 3600:
                 # only reschedule if the drift is more than 1 min, and not hours (next day)
-                self._state = STATE_OFF
-                self._timer()
-                self._timer = None
-                self._state = STATE_ON
                 await self.async_start_timer()
 
         self.coordinator.add_sun_listener(async_sun_updated)
@@ -551,18 +574,15 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
         @callback
         async def async_workday_updated(workday_data):
-            if self._state != STATE_ON or not self._entry:
-                return
-
             slot = self._timeslots[self._entry]
 
-            ts_old = calculate_next_timeslot(
+            ts_old = calculate_next_start_time(
                 start=slot["start"],
                 weekdays=self.weekdays,
                 sun_data=self.sun_data,
                 workday_data=self.workday_data,
             )
-            ts_new = calculate_next_timeslot(
+            ts_new = calculate_next_start_time(
                 start=slot["start"],
                 weekdays=self.weekdays,
                 sun_data=self.sun_data,
@@ -572,10 +592,6 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
             if abs(delta) >= 3600:
                 # item needs to be rescheduled
-                self._state = STATE_OFF
-                self._timer()
-                self._timer = None
-                self._state = STATE_ON
                 await self.async_start_timer()
 
         self.coordinator.add_workday_listener(async_workday_updated)
@@ -583,12 +599,13 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
     def check_entity_availability(self, action_entity, cb_func):
 
-        entity_list = self.dataCollection.get_condition_entities_for_entry(
-            self._queued_entry
-        )
+        entity_list = []
 
-        if not entity_list:
-            entity_list = []
+        current_slot = self._timeslots[self._queued_entry]
+
+        for item in current_slot["conditions"]:
+            entity_list.append(item["entity_id"])
+
         if action_entity:
             entity_list.append(action_entity)
 
