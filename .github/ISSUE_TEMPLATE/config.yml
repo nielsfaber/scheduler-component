@@ -1,0 +1,4 @@
+contact_links: 
+  - about: "Most issues should be posted over at scheduler-card."
+    name: Bug / feature request / usage question
+    url: "https://github.com/nielsfaber/scheduler-card/issues/new"
