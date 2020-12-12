@@ -25,7 +25,7 @@ class ActionEntry:
 
     service = attr.ib(type=str, default="")
     entity_id = attr.ib(type=str, default="")
-    data = attr.ib(type=dict, default={})
+    service_data = attr.ib(type=dict, default={})
 
 
 @attr.s(slots=True, frozen=True)
@@ -57,6 +57,8 @@ class ScheduleEntry:
     weekdays = attr.ib(type=list, default=[])
     timeslots = attr.ib(type=[TimeslotEntry], default=[])
     repeat_type = attr.ib(type=str, default=None)
+    name = attr.ib(type=str, default=None)
+    enabled = attr.ib(type=bool, default=True)
 
 
 def parse_schedule_data(data: dict):

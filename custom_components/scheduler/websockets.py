@@ -22,12 +22,11 @@ class SchedulesAddView(HomeAssistantView):
     @RequestDataValidator(
         SCHEDULE_SCHEMA
     )
-    def post(self, request, data):
+    async def post(self, request, data):
         """Handle config update request."""
         hass = request.app["hass"]
         coordinator = hass.data[DOMAIN]["coordinator"]
         coordinator.async_create_schedule(data)
-        request.app["hass"].bus.async_fire(EVENT)
         return self.json({"success": True})
 
 
@@ -46,8 +45,9 @@ class SchedulesEditView(HomeAssistantView):
         """Handle config update request."""
         hass = request.app["hass"]
         coordinator = hass.data[DOMAIN]["coordinator"]
-        coordinator.async_edit_schedule(data)
-        request.app["hass"].bus.async_fire(EVENT)
+        schedule_id = data["schedule_id"]
+        del data["schedule_id"]
+        await coordinator.async_edit_schedule(schedule_id, data)
         return self.json({"success": True})
 
 
@@ -66,8 +66,7 @@ class SchedulesRemoveView(HomeAssistantView):
         """Handle config update request."""
         hass = request.app["hass"]
         coordinator = hass.data[DOMAIN]["coordinator"]
-        coordinator.async_remove_schedule(data["schedule_id"])
-        request.app["hass"].bus.async_fire(EVENT)
+        coordinator.async_delete_schedule(data["schedule_id"])
         return self.json({"success": True})
 
 

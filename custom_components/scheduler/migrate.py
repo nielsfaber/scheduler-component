@@ -132,7 +132,7 @@ def migrate_old_entity(data: dict, entity_id: str):
                     action["service"] = service
                     del item["service"]
                 if item:
-                    action["data"] = item
+                    action["service_data"] = item
 
                 actions.append(action)
 
@@ -170,7 +170,7 @@ def migrate_old_entity(data: dict, entity_id: str):
     repeat_type = "repeat"
     if "options" in data:
         if "run_once" in data["options"]:
-            repeat_type = "single"
+            repeat_type = "pause"
 
     return {
         "schedule_id": entity_id.replace("schedule_", ""),

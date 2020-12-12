@@ -23,13 +23,22 @@ MATCH_TYPE_UNEQUAL = "not"
 MATCH_TYPE_BELOW = "below"
 MATCH_TYPE_ABOVE = "above"
 
+REPEAT_TYPE_REPEAT = "repeat"
+REPEAT_TYPE_SINGLE = "single"
+REPEAT_TYPE_PAUSE = "pause"
+
 CONDITION_SCHEMA = vol.Schema(
     {
         vol.Required("entity_id"): cv.entity_id,
         vol.Required("value"): vol.Any(int, float, str),
         vol.Optional("attribute"): cv.string,
         vol.Required("match_type"): vol.In(
-            [MATCH_TYPE_EQUAL, MATCH_TYPE_UNEQUAL, MATCH_TYPE_BELOW, MATCH_TYPE_ABOVE]
+            [
+                MATCH_TYPE_EQUAL,
+                MATCH_TYPE_UNEQUAL,
+                MATCH_TYPE_BELOW,
+                MATCH_TYPE_ABOVE
+            ]
         ),
     }
 )
@@ -47,7 +56,9 @@ TIMESLOT_SCHEMA = vol.Schema(
         vol.Required("start"): cv.string,
         vol.Optional("stop"): cv.string,
         vol.Optional("conditions"): vol.All(
-            cv.ensure_list, vol.Length(min=1), [CONDITION_SCHEMA]
+            cv.ensure_list,
+            vol.Length(min=1),
+            [CONDITION_SCHEMA]
         ),
         vol.Optional("condition_type"): vol.In(
             [
@@ -56,7 +67,9 @@ TIMESLOT_SCHEMA = vol.Schema(
             ]
         ),
         vol.Required("actions"): vol.All(
-            cv.ensure_list, vol.Length(min=1), [ACTION_SCHEMA]
+            cv.ensure_list,
+            vol.Length(min=1),
+            [ACTION_SCHEMA]
         ),
     }
 )
@@ -67,7 +80,7 @@ SCHEDULE_SCHEMA = vol.Schema(
             cv.ensure_list,
             vol.Unique(),
             vol.Length(min=1),
-            vol.In(
+            [vol.In(
                 [
                     "mon",
                     "tue",
@@ -80,10 +93,18 @@ SCHEDULE_SCHEMA = vol.Schema(
                     DAY_TYPE_WEEKEND,
                     DAY_TYPE_DAILY,
                 ]
-            ),
+            )],
         ),
         vol.Required("timeslots"): vol.All(
             cv.ensure_list, vol.Length(min=1), [TIMESLOT_SCHEMA]
         ),
+        vol.Required("repeat_type"): vol.In(
+            [
+                REPEAT_TYPE_REPEAT,
+                REPEAT_TYPE_SINGLE,
+                REPEAT_TYPE_PAUSE,
+            ]
+        ),
+        vol.Optional("name"): cv.string
     }
 )

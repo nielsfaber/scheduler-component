@@ -11,6 +11,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_state_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
+from homeassistant.helpers.entity_registry import async_get_registry as get_entity_registry
 from homeassistant.const import (
     SUN_EVENT_SUNRISE,
     SUN_EVENT_SUNSET,
@@ -24,6 +25,7 @@ from .const import (
 from .store import async_get_registry
 from .websockets import async_register_websockets
 
+EVENT = "scheduler_updated"
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=30)
 
@@ -53,7 +55,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN] = {
         "coordinator": coordinator,
-        "schedules": []
+        "schedules": {}
     }
 
     if entry.unique_id is None:
@@ -90,8 +92,8 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         self.store = store
         self.sun_data = None
         self.workday_data = None
-        self._sun_listeners = []
-        self._workday_listeners = []
+        self._sun_listeners = {}
+        self._workday_listeners = {}
         self._startup_listeners = []
         self.is_started = False
         self._create_schedule_handler = None
@@ -115,19 +117,16 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         hass.bus.async_listen(EVENT_HOMEASSISTANT_STARTED, handle_startup)
 
     def async_get_schedule(self, schedule_id: str):
-        items = self.hass.data[DOMAIN]["schedules"]
-        for item in items:
-            if item.state_attributes["schedule_id"] == schedule_id:
-                config = self.store.async_get_schedule(item.state_attributes["schedule_id"])
-                config.update(item.async_get_entity_state())
-                return config
+        if schedule_id not in self.hass.data[DOMAIN]["schedules"]:
+            return None
+        item = self.hass.data[DOMAIN]["schedules"][schedule_id]
+        return item.async_get_entity_state()
 
     def async_get_schedules(self):
-        items = self.hass.data[DOMAIN]["schedules"]
+        schedules = self.hass.data[DOMAIN]["schedules"]
         data = []
-        for item in items:
-            config = self.store.async_get_schedule(item.state_attributes["schedule_id"])
-            config.update(item.async_get_entity_state())
+        for (schedule_id, item) in schedules.items():
+            config = item.async_get_entity_state()
             data.append(config)
         return data
 
@@ -136,8 +135,29 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         if res:
             self._create_schedule_handler(res)
 
-    def async_edit_schedule(self, data):
-        _LOGGER.debug(data)
+    async def async_edit_schedule(self, schedule_id: str, data: dict):
+        _LOGGER.debug("async_edit_schedule")
+        if schedule_id not in self.hass.data[DOMAIN]["schedules"]:
+            return
+        entry = self.store.async_update_schedule(schedule_id, data)
+        entity = self.hass.data[DOMAIN]["schedules"][schedule_id]
+        if "name" in data and data["name"]:
+            entity_registry = await get_entity_registry(self.hass)
+            entity_registry.async_remove(entity.entity_id)
+            self._create_schedule_handler(entry)
+        else:
+            await entity.async_update_schedule()
+
+    async def async_delete_schedule(self, schedule_id: str):
+        _LOGGER.debug("async_delete_schedule")
+        if schedule_id not in self.hass.data[DOMAIN]["schedules"]:
+            return
+        entity = self.hass.data[DOMAIN]["schedules"][schedule_id]
+        entity_registry = await get_entity_registry(self.hass)
+        entity_registry.async_remove(entity.entity_id)
+        self.store.async_delete_schedule(schedule_id)
+        self.hass.data[DOMAIN]["schedules"].pop(schedule_id, None)
+        self.hass.bus.async_fire(EVENT)
 
     async def async_start_schedules(self, _=None):
         if self.is_started:
@@ -156,7 +176,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
     async def async_sun_updated(self, entity, old_state, new_state):
         self.update_sun_data()
         if self.sun_data:
-            for item in self._sun_listeners:
+            for item in self._sun_listeners.values():
                 await item(self.sun_data)
 
     def update_sun_data(self):
@@ -177,7 +197,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
     async def async_workday_updated(self, entity, old_state, new_state):
         self.update_workday_data()
         if self.workday_data:
-            for item in self._workday_listeners:
+            for item in self._workday_listeners.values():
                 await item(self.workday_data)
 
     def update_workday_data(self):
@@ -203,11 +223,19 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         for item in self._listeners:
             item(data)
 
-    def add_sun_listener(self, cb_func):
-        self._sun_listeners.append(cb_func)
+    def add_sun_listener(self, schedule_id: str, cb_func):
+        self._sun_listeners[schedule_id] = cb_func
 
-    def add_workday_listener(self, cb_func):
-        self._workday_listeners.append(cb_func)
+    def remove_sun_listener(self, schedule_id: str):
+        if schedule_id in self._sun_listeners:
+            del self._sun_listeners[schedule_id]
+
+    def add_workday_listener(self, schedule_id: str, cb_func):
+        self._workday_listeners[schedule_id] = cb_func
+
+    def remove_workday_listener(self, schedule_id: str):
+        if schedule_id in self._workday_listeners:
+            del self._workday_listeners[schedule_id]
 
     def add_startup_listener(self, cb_func):
         self._startup_listeners.append(cb_func)
