@@ -219,7 +219,7 @@ def is_between_start_time_and_end_time(
 
 def parse_iso_timestamp(time_string):
     time_obj = datetime.datetime.strptime(
-        time_string[: len(time_string) - 3] + time_string[len(time_string) - 2:],
+        time_string[: len(time_string) - 3] + time_string[len(time_string) - 2 :],
         "%Y-%m-%dT%H:%M:%S%z",
     )
 

@@ -4,7 +4,11 @@ from datetime import timedelta
 
 from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.const import (
+    EVENT_HOMEASSISTANT_STARTED,
+    SUN_EVENT_SUNRISE,
+    SUN_EVENT_SUNSET,
+)
 from homeassistant.core import HomeAssistant, asyncio
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -12,10 +16,6 @@ from homeassistant.helpers.event import async_call_later, async_track_state_chan
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from homeassistant.helpers.entity_registry import async_get_registry as get_entity_registry
-from homeassistant.const import (
-    SUN_EVENT_SUNRISE,
-    SUN_EVENT_SUNSET,
-)
 from .const import (
     DOMAIN,
     SUN_ENTITY,

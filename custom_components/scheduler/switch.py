@@ -4,6 +4,8 @@ import logging
 import copy
 
 from homeassistant.components.switch import DOMAIN as PLATFORM
+from homeassistant.const import STATE_ALARM_TRIGGERED as STATE_TRIGGERED
+from homeassistant.const import STATE_OFF, STATE_ON, SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import async_entries_for_config_entry
 from homeassistant.helpers.entity import ToggleEntity
@@ -18,13 +20,6 @@ from homeassistant.util import slugify
 from homeassistant.helpers.service import async_call_from_config
 from homeassistant.util import dt as dt_util
 
-from homeassistant.const import (
-    SUN_EVENT_SUNRISE,
-    SUN_EVENT_SUNSET,
-    STATE_OFF,
-    STATE_ON,
-    STATE_ALARM_TRIGGERED as STATE_TRIGGERED,
-)
 from .const import (
     DOMAIN,
     VERSION,
@@ -266,8 +261,12 @@ class ScheduleEntity(ToggleEntity):
             timestamps.append(next_time)
 
         relative_time = list(map(lambda x: x - now, timestamps))
-        timeslot_order = sorted(range(len(relative_time)), key=lambda k: relative_time[k])
-        timestamps_sring = list(map(lambda x: dt_util.as_local(x).isoformat(), timestamps))
+        timeslot_order = sorted(
+            range(len(relative_time)), key=lambda k: relative_time[k]
+        )
+        timestamps_sring = list(
+            map(lambda x: dt_util.as_local(x).isoformat(), timestamps)
+        )
 
         self._next_entries = timeslot_order
         self._timestamps = timestamps_sring
@@ -557,13 +556,13 @@ class ScheduleEntity(ToggleEntity):
                 start=slot["start"],
                 weekdays=self.schedule["weekdays"],
                 sun_data=self.sun_data,
-                workday_data=self.workday_data
+                workday_data=self.workday_data,
             )
             ts_new = calculate_next_start_time(
                 start=slot["start"],
                 weekdays=self.schedule["weekdays"],
                 sun_data=sun_data,
-                workday_data=self.workday_data
+                workday_data=self.workday_data,
             )
             delta = (ts_old - ts_new).total_seconds()
 
@@ -590,7 +589,7 @@ class ScheduleEntity(ToggleEntity):
                 start=slot["start"],
                 weekdays=self.schedule["weekdays"],
                 sun_data=self.sun_data,
-                workday_data=self.workday_data
+                workday_data=self.workday_data,
             )
             ts_new = calculate_next_start_time(
                 start=slot["start"],

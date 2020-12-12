@@ -19,10 +19,15 @@ class SchedulesAddView(HomeAssistantView):
     url = "/api/scheduler/add"
     name = "api:scheduler:add"
 
+<<<<<<< HEAD
     @RequestDataValidator(
         SCHEDULE_SCHEMA
     )
     async def post(self, request, data):
+=======
+    @RequestDataValidator(SCHEDULE_SCHEMA)
+    def post(self, request, data):
+>>>>>>> 49d24ceee7e3c5825de988994b136a1e741d50ea
         """Handle config update request."""
         hass = request.app["hass"]
         coordinator = hass.data[DOMAIN]["coordinator"]
@@ -37,17 +42,26 @@ class SchedulesEditView(HomeAssistantView):
     name = "api:scheduler:edit"
 
     @RequestDataValidator(
+<<<<<<< HEAD
         SCHEDULE_SCHEMA.extend({
             vol.Required("schedule_id"): cv.string
         })
+=======
+        SCHEDULE_SCHEMA.extend({vol.Required("schedule_id"): cv.string})
+>>>>>>> 49d24ceee7e3c5825de988994b136a1e741d50ea
     )
     async def post(self, request, data):
         """Handle config update request."""
         hass = request.app["hass"]
         coordinator = hass.data[DOMAIN]["coordinator"]
+<<<<<<< HEAD
         schedule_id = data["schedule_id"]
         del data["schedule_id"]
         await coordinator.async_edit_schedule(schedule_id, data)
+=======
+        coordinator.async_edit_schedule(data)
+        request.app["hass"].bus.async_fire(EVENT)
+>>>>>>> 49d24ceee7e3c5825de988994b136a1e741d50ea
         return self.json({"success": True})
 
 
@@ -57,16 +71,17 @@ class SchedulesRemoveView(HomeAssistantView):
     url = "/api/scheduler/remove"
     name = "api:scheduler:remove"
 
-    @RequestDataValidator(
-        vol.Schema({
-            vol.Required("schedule_id"): cv.string
-        })
-    )
+    @RequestDataValidator(vol.Schema({vol.Required("schedule_id"): cv.string}))
     async def post(self, request, data):
         """Handle config update request."""
         hass = request.app["hass"]
         coordinator = hass.data[DOMAIN]["coordinator"]
+<<<<<<< HEAD
         coordinator.async_delete_schedule(data["schedule_id"])
+=======
+        coordinator.async_remove_schedule(data["schedule_id"])
+        request.app["hass"].bus.async_fire(EVENT)
+>>>>>>> 49d24ceee7e3c5825de988994b136a1e741d50ea
         return self.json({"success": True})
 
 
@@ -107,7 +122,7 @@ async def async_register_websockets(hass):
         websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
             {
                 vol.Required("type"): "scheduler/item",
-                vol.Required("schedule_id"): cv.string
+                vol.Required("schedule_id"): cv.string,
             }
         ),
     )
