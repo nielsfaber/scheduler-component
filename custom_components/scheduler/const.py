@@ -2,7 +2,7 @@
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
-VERSION = "2.1.1"
+VERSION = "3.0.0b"
 
 DOMAIN = "scheduler"
 ENTITY_ID_FORMAT = DOMAIN + ".{}"
