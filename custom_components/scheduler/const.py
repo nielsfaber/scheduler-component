@@ -33,12 +33,7 @@ CONDITION_SCHEMA = vol.Schema(
         vol.Required("value"): vol.Any(int, float, str),
         vol.Optional("attribute"): cv.string,
         vol.Required("match_type"): vol.In(
-            [
-                MATCH_TYPE_EQUAL,
-                MATCH_TYPE_UNEQUAL,
-                MATCH_TYPE_BELOW,
-                MATCH_TYPE_ABOVE
-            ]
+            [MATCH_TYPE_EQUAL, MATCH_TYPE_UNEQUAL, MATCH_TYPE_BELOW, MATCH_TYPE_ABOVE]
         ),
     }
 )
@@ -56,9 +51,7 @@ TIMESLOT_SCHEMA = vol.Schema(
         vol.Required("start"): cv.string,
         vol.Optional("stop"): cv.string,
         vol.Optional("conditions"): vol.All(
-            cv.ensure_list,
-            vol.Length(min=1),
-            [CONDITION_SCHEMA]
+            cv.ensure_list, vol.Length(min=1), [CONDITION_SCHEMA]
         ),
         vol.Optional("condition_type"): vol.In(
             [
@@ -67,9 +60,7 @@ TIMESLOT_SCHEMA = vol.Schema(
             ]
         ),
         vol.Required("actions"): vol.All(
-            cv.ensure_list,
-            vol.Length(min=1),
-            [ACTION_SCHEMA]
+            cv.ensure_list, vol.Length(min=1), [ACTION_SCHEMA]
         ),
     }
 )
@@ -80,20 +71,22 @@ SCHEDULE_SCHEMA = vol.Schema(
             cv.ensure_list,
             vol.Unique(),
             vol.Length(min=1),
-            [vol.In(
-                [
-                    "mon",
-                    "tue",
-                    "wed",
-                    "thu",
-                    "fri",
-                    "sat",
-                    "sun",
-                    DAY_TYPE_WORKDAY,
-                    DAY_TYPE_WEEKEND,
-                    DAY_TYPE_DAILY,
-                ]
-            )],
+            [
+                vol.In(
+                    [
+                        "mon",
+                        "tue",
+                        "wed",
+                        "thu",
+                        "fri",
+                        "sat",
+                        "sun",
+                        DAY_TYPE_WORKDAY,
+                        DAY_TYPE_WEEKEND,
+                        DAY_TYPE_DAILY,
+                    ]
+                )
+            ],
         ),
         vol.Required("timeslots"): vol.All(
             cv.ensure_list, vol.Length(min=1), [TIMESLOT_SCHEMA]
@@ -105,6 +98,6 @@ SCHEDULE_SCHEMA = vol.Schema(
                 REPEAT_TYPE_PAUSE,
             ]
         ),
-        vol.Optional("name"): cv.string
+        vol.Optional("name"): cv.string,
     }
 )

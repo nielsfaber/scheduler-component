@@ -231,12 +231,16 @@ def has_overlapping_timeslot(slots, weekdays=None, sun_data=None, workday_data=N
 
     for i in range(len(slots)):
         slot = slots[i]
-        if "stop" in slot and slot["stop"] and is_between_start_time_and_end_time(
-            start=slot["start"],
-            stop=slot["stop"],
-            weekdays=weekdays,
-            sun_data=sun_data,
-            workday_data=workday_data,
+        if (
+            "stop" in slot
+            and slot["stop"]
+            and is_between_start_time_and_end_time(
+                start=slot["start"],
+                stop=slot["stop"],
+                weekdays=weekdays,
+                sun_data=sun_data,
+                workday_data=workday_data,
+            )
         ):
             return i
 

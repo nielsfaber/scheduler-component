@@ -12,16 +12,13 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, asyncio
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.entity_registry import (
+    async_get_registry as get_entity_registry,
+)
 from homeassistant.helpers.event import async_call_later, async_track_state_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from homeassistant.helpers.entity_registry import async_get_registry as get_entity_registry
-from .const import (
-    DOMAIN,
-    SUN_ENTITY,
-    VERSION,
-    WORKDAY_ENTITY,
-)
+from .const import DOMAIN, SUN_ENTITY, VERSION, WORKDAY_ENTITY
 from .store import async_get_registry
 from .websockets import async_register_websockets
 
@@ -53,10 +50,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN] = {
-        "coordinator": coordinator,
-        "schedules": {}
-    }
+    hass.data[DOMAIN] = {"coordinator": coordinator, "schedules": {}}
 
     if entry.unique_id is None:
         hass.config_entries.async_update_entry(entry, unique_id=coordinator.id)
@@ -66,6 +60,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
     await async_register_websockets(hass)
+
+    return True
+
+
+async def async_migrate_entry(hass, config_entry: ConfigEntry):
+    """Migrate old entry."""
+    _LOGGER.debug("Migrating from version %s", config_entry.version)
+
+    if config_entry.version == 1:
+        config_entry.version = 2
+        config_entry.data = {"migrate_entities": True}
 
     return True
 

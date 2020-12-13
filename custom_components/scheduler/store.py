@@ -1,15 +1,14 @@
 import logging
-import attr
 import secrets
 from collections import OrderedDict
 from typing import MutableMapping, cast
-from homeassistant.loader import bind_hass
+
+import attr
 from homeassistant.core import callback
 from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.loader import bind_hass
 
-from .const import (
-    DOMAIN,
-)
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -103,6 +102,8 @@ class ScheduleStorage:
                     weekdays=entry["weekdays"],
                     timeslots=entry["timeslots"],
                     repeat_type=entry["repeat_type"],
+                    name=entry["name"],
+                    enabled=entry["enabled"],
                 )
         self.schedules = schedules
 
@@ -128,6 +129,8 @@ class ScheduleStorage:
                 "timeslots": [],
                 "weekdays": entry.weekdays,
                 "repeat_type": entry.repeat_type,
+                "name": entry.name,
+                "enabled": entry.enabled,
             }
             for slot in entry.timeslots:
                 timeslot = {

@@ -172,9 +172,14 @@ def migrate_old_entity(data: dict, entity_id: str):
         if "run_once" in data["options"]:
             repeat_type = "pause"
 
+    name = None
+    if "friendly_name" in data and "#" not in data["friendly_name"]:
+        name = data["friendly_name"]
+
     return {
         "schedule_id": entity_id.replace("schedule_", ""),
         "weekdays": weekdays,
         "timeslots": entries,
         "repeat_type": repeat_type,
+        "name": name,
     }
