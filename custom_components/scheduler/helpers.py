@@ -1,13 +1,17 @@
 import datetime
 import logging
 import math
+import re
 
 import homeassistant.util.dt as dt_util
+from homeassistant.const import SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
 
-from .const import DAY_TYPE_CUSTOM, DAY_TYPE_DAILY, DAY_TYPE_WEEKEND, DAY_TYPE_WORKDAY
+from .const import DAY_TYPE_DAILY, DAY_TYPE_WEEKEND, DAY_TYPE_WORKDAY
 
 _LOGGER = logging.getLogger(__name__)
 
+
+OffsetTimePattern = re.compile("^([a-z]+)([-|\+]{1})([0-9:]+)$")
 
 
 def entity_exists_in_hass(hass, entity_id):
@@ -45,26 +49,28 @@ def timedelta_to_string(time_input: datetime.timedelta):
     return "{}{}:{}".format(sign, str(hours).zfill(2), str(minutes).zfill(2))
 
 
-def calculate_datetime_from_entry(time_entry: dict, sun_data):
-    if "at" in time_entry:
-        time = dt_util.parse_time(time_entry["at"])
+def calculate_datetime_from_entry(time: str, sun_data=None):
+    res = OffsetTimePattern.match(time)
+    if not res:
+        time = dt_util.parse_time(time)
 
         today = dt_util.start_of_local_day()
         time_obj = dt_util.as_utc(datetime.datetime.combine(today, time))
+    else:
+        sun_event = (
+            SUN_EVENT_SUNRISE if res.group(1) == SUN_EVENT_SUNRISE else SUN_EVENT_SUNSET
+        )
+        offset_sign = res.group(2)
+        offset_string = res.group(3)
 
-    elif "event" in time_entry:
         if not sun_data:
             raise Exception("no sun data available")
 
-        offset_sign = time_entry["offset"][0]
-        offset_string = time_entry["offset"][1:]
-
-        time_offset = datetime.datetime.strptime(offset_string, "%H:%M")
+        time_offset = datetime.datetime.strptime(offset_string, "%H:%M:%S")
         time_offset = datetime.timedelta(
             hours=time_offset.hour, minutes=time_offset.minute
         )
 
-        sun_event = time_entry["event"]
         time_sun = sun_data[sun_event]
 
         time_sun = parse_iso_timestamp(time_sun)
@@ -74,50 +80,49 @@ def calculate_datetime_from_entry(time_entry: dict, sun_data):
         else:
             time_obj = time_sun - time_offset
 
-    else:
-        raise Exception("cannot parse timestamp")
-
     return time_obj
 
 
-def convert_days_to_numbers(day_arr):
-    def day_string_to_number(day_string):
-        if day_string == "mon":
-            return 1
-        elif day_string == "tue":
-            return 2
-        elif day_string == "wed":
-            return 3
-        elif day_string == "thu":
-            return 4
-        elif day_string == "fri":
-            return 5
-        elif day_string == "sat":
-            return 6
-        elif day_string == "sun":
-            return 7
+def convert_number_to_weekday(day_arr):
+    def day_number_to_weekday(day_string):
+        if day_string == 1:
+            return "mon"
+        elif day_string == 2:
+            return "tue"
+        elif day_string == 3:
+            return "wed"
+        elif day_string == 4:
+            return "thu"
+        elif day_string == 5:
+            return "fri"
+        elif day_string == 6:
+            return "sat"
+        elif day_string == 7:
+            return "sun"
         else:
             raise Exception("cannot read workday data")
 
-    day_list = []
-    for day_str in day_arr:
-        num = day_string_to_number(day_str)
-        day_list.append(num)
+    if type(day_arr) is list:
+        day_list = []
+        day_arr.sort()
+        for num in day_arr:
+            val = day_number_to_weekday(num)
+            day_list.append(val)
 
-    day_list.sort()
-    return day_list
+        return day_list
+    else:
+        return day_number_to_weekday(day_arr)
 
 
-def is_allowed_day(date_obj: datetime.datetime, day_entry: dict, workday_data):
-    day = dt_util.as_local(date_obj).isoweekday()
-    workday_list = [1, 2, 3, 4, 5]
-    weekend_list = [6, 7]
-    day_type = day_entry["type"]
+def is_allowed_day(date_obj: datetime.datetime, weekdays=None, workday_data=None):
+    day = convert_number_to_weekday(dt_util.as_local(date_obj).isoweekday())
+    workday_list = ["mon", "tue", "wed", "thu", "fri"]
+    weekend_list = ["sat", "sun"]
 
     if workday_data:
         # update the list of workdays and weekend days with data from workday sensor
         workday_list = workday_data["workdays"]
-        weekend_list = [1, 2, 3, 4, 5, 6, 7]
+        weekend_list = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
         for val in workday_list:
             weekend_list = list(filter(lambda x: x != val, weekend_list))
 
@@ -126,26 +131,25 @@ def is_allowed_day(date_obj: datetime.datetime, day_entry: dict, workday_data):
 
         # check if today is a workday according to the sensor (includes holidays)
         if today == date_obj_date:
-            if day_type == DAY_TYPE_WORKDAY:
+            if DAY_TYPE_WORKDAY in weekdays:
                 return workday_data["today_is_workday"]
-            elif day_type == DAY_TYPE_WEEKEND:
+            elif DAY_TYPE_WEEKEND in weekdays:
                 return not workday_data["today_is_workday"]
 
-    if day_type == DAY_TYPE_DAILY:
+    if DAY_TYPE_DAILY in weekdays:
         return True
-    elif day_type == DAY_TYPE_WORKDAY:
-        return day in workday_list
-    elif day_type == DAY_TYPE_WEEKEND:
-        return day in weekend_list
-    elif day_type == DAY_TYPE_CUSTOM:
-        day_list = day_entry["list"]
-        return day in day_list
+    elif DAY_TYPE_WORKDAY in weekdays and day in workday_list:
+        return True
+    elif DAY_TYPE_WEEKEND in weekdays and day in weekend_list:
+        return True
+    return day in weekdays
 
 
-def calculate_next_start_time(entry: dict, sun_data, workday_data):
+def calculate_next_start_time(
+    start=None, weekdays=None, sun_data=None, workday_data=None
+):
     """Get datetime object with closest occurance based on time + weekdays input"""
-    nexttime = calculate_datetime_from_entry(entry["time"], sun_data)
-
+    nexttime = calculate_datetime_from_entry(start, sun_data=sun_data)
     now = dt_util.now().replace(microsecond=0)
 
     # check if time has already passed for today
@@ -158,22 +162,25 @@ def calculate_next_start_time(entry: dict, sun_data, workday_data):
 
     # check if timer is restricted in days of the week
     while (
-        not is_allowed_day(nexttime, entry["days"], workday_data) and iterations < 100
+        not is_allowed_day(nexttime, weekdays=weekdays, workday_data=workday_data)
+        and iterations < 100
     ):
         nexttime = nexttime + datetime.timedelta(days=1)
         iterations = iterations + 1
 
     if iterations == 100:
-        _LOGGER.error(entry)
         raise Exception("failed to calculate timestamp")
+
     return nexttime
 
 
-def is_between_start_time_and_end_time(entry: dict, sun_data, workday_data):
+def is_between_start_time_and_end_time(
+    start=None, stop=None, weekdays=None, sun_data=None, workday_data=None
+):
     """Get datetime object with closest occurance based on time + weekdays input"""
 
-    start_time = calculate_datetime_from_entry(entry["time"], sun_data)
-    end_time = calculate_datetime_from_entry(entry["end_time"], sun_data)
+    start_time = calculate_datetime_from_entry(start, sun_data)
+    end_time = calculate_datetime_from_entry(stop, sun_data)
 
     if end_time < start_time:
         end_time = end_time + datetime.timedelta(days=1)
@@ -191,14 +198,14 @@ def is_between_start_time_and_end_time(entry: dict, sun_data, workday_data):
 
     # check if timer is restricted in days of the week
     while (
-        not is_allowed_day(start_time, entry["days"], workday_data) and iterations < 100
+        not is_allowed_day(start_time, weekdays=weekdays, workday_data=workday_data)
+        and iterations < 100
     ):
         start_time = start_time + datetime.timedelta(days=1)
         end_time = end_time + datetime.timedelta(days=1)
         iterations = iterations + 1
 
     if iterations == 100:
-        _LOGGER.error(entry)
         raise Exception("failed to calculate timestamp")
 
     delta_start = (start_time - now).total_seconds()
@@ -217,3 +224,24 @@ def parse_iso_timestamp(time_string):
     )
 
     return time_obj
+
+
+def has_overlapping_timeslot(slots, weekdays=None, sun_data=None, workday_data=None):
+    """Check if there are timeslots which overlapping with now"""
+
+    for i in range(len(slots)):
+        slot = slots[i]
+        if (
+            "stop" in slot
+            and slot["stop"]
+            and is_between_start_time_and_end_time(
+                start=slot["start"],
+                stop=slot["stop"],
+                weekdays=weekdays,
+                sun_data=sun_data,
+                workday_data=workday_data,
+            )
+        ):
+            return i
+
+    return None

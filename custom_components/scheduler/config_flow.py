@@ -9,7 +9,7 @@ from . import DOMAIN
 class SchedulerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for Scheduler."""
 
-    VERSION = 1
+    VERSION = 2
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
 
     async def async_step_user(self, user_input=None):

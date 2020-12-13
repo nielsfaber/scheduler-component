@@ -1,10 +1,12 @@
 """Initialization of Scheduler switch platform."""
+import copy
 import datetime
 import logging
-import secrets
 
 from homeassistant.components.switch import DOMAIN as PLATFORM
-from homeassistant.helpers import entity_platform
+from homeassistant.const import STATE_ALARM_TRIGGERED as STATE_TRIGGERED
+from homeassistant.const import STATE_OFF, STATE_ON, SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
+from homeassistant.core import callback
 from homeassistant.helpers.device_registry import async_entries_for_config_entry
 from homeassistant.helpers.entity import ToggleEntity
 from homeassistant.helpers.entity_registry import async_entries_for_device
@@ -16,25 +18,26 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.service import async_call_from_config
 from homeassistant.util import dt as dt_util
+from homeassistant.util import slugify
 
 from .const import (
+    CONDITION_TYPE_AND,
+    DAY_TYPE_WEEKEND,
+    DAY_TYPE_WORKDAY,
     DOMAIN,
-    OPTION_RUN_ONCE,
-    SCHEMA_EDIT,
-    SCHEMA_ENTITY,
-    SCHEMA_TEST,
-    SERVICE_EDIT,
-    SERVICE_REMOVE,
-    SERVICE_TEST,
-    STATE_DISABLED,
-    STATE_INITIALIZING,
-    STATE_INVALID,
-    STATE_TRIGGERED,
-    STATE_WAITING,
+    MATCH_TYPE_ABOVE,
+    MATCH_TYPE_BELOW,
+    MATCH_TYPE_EQUAL,
+    MATCH_TYPE_UNEQUAL,
+    REPEAT_TYPE_PAUSE,
+    REPEAT_TYPE_SINGLE,
     VERSION,
 )
-from .datacollection import DataCollection
+from .helpers import calculate_next_start_time, has_overlapping_timeslot
+from .migrate import migrate_old_entity
+from .store import ScheduleEntry, async_get_registry
 
+EVENT = "scheduler_updated"
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -56,83 +59,66 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the Scheduler switch devices. """
 
-    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator = hass.data[DOMAIN]["coordinator"]
 
-    entities = []
+    if (
+        "migrate_entities" in config_entry.data
+        and config_entry.data["migrate_entities"]
+    ):
+        # perform one-time migration of old persistent entities to the store
+        entities = []
 
-    device_registry = await hass.helpers.device_registry.async_get_registry()
-    devices = async_entries_for_config_entry(device_registry, config_entry.entry_id)
+        device_registry = await hass.helpers.device_registry.async_get_registry()
+        devices = async_entries_for_config_entry(device_registry, config_entry.entry_id)
+        device = devices[0]
 
-    if len(devices) > 1:
-        _LOGGER.error("Found multiple devices for integration")
-        return False
-    elif not devices:
-        _LOGGER.error("Integration needs to be set up before it can be used")
-        return False
+        entity_registry = await hass.helpers.entity_registry.async_get_registry()
+        for entry in async_entries_for_device(entity_registry, device.id):
 
-    device = devices[0]
+            entities.append(MigrationScheduleEntity(coordinator, entry.unique_id))
 
-    entity_registry = await hass.helpers.entity_registry.async_get_registry()
-    for entry in async_entries_for_device(entity_registry, device.id):
-
-        entities.append(ScheduleEntity(coordinator, entry.unique_id))
-
-    async_add_entities(entities)
-
-    # callback from the coordinator
-    def async_add_switch(data):
-        """Add switch for Scheduler."""
-
-        # Generate a unique token
-        token = secrets.token_hex(3)
-        while entity_exists_in_hass(hass, "{}.schedule_{}".format(PLATFORM, token)):
-            token = secrets.token_hex(3)
-
-        datacollection = DataCollection()
-        datacollection.import_from_service(data)
-
-        async_add_entities(
-            [
-                ScheduleEntity(
-                    coordinator,
-                    "schedule_{}".format(token),
-                    datacollection,
-                )
-            ]
+        async_add_entities(entities)
+        hass.config_entries.async_update_entry(config_entry, data={})
+        _LOGGER.warning(
+            "Migration of schedule entities in progress. Please restart HA to complete it."
         )
 
-    # We add a listener after fetching the data, so manually trigger listener
-    coordinator.async_add_listener(async_add_switch)
+    @callback
+    def async_add_entity(schedule: ScheduleEntry):
+        """Add switch for Scheduler."""
 
-    platform = entity_platform.current_platform.get()
+        schedule_id = schedule.schedule_id
+        name = schedule.name
 
-    platform.async_register_entity_service(
-        SERVICE_TEST, SCHEMA_TEST, "async_execute_command"
-    )
+        if name:
+            entity_id = "{}.schedule_{}".format(PLATFORM, slugify(name))
+        else:
+            entity_id = "{}.schedule_{}".format(PLATFORM, schedule_id)
 
-    platform.async_register_entity_service(
-        SERVICE_REMOVE, SCHEMA_ENTITY, "async_service_remove"
-    )
+        entity = ScheduleEntity(coordinator, hass, schedule_id, entity_id)
 
-    platform.async_register_entity_service(
-        SERVICE_EDIT, SCHEMA_EDIT, "async_service_edit"
-    )
+        hass.data[DOMAIN]["schedules"][schedule_id] = entity
+
+        async_add_entities([entity])
+
+    coordinator._create_schedule_handler = async_add_entity
+
+    for entry in coordinator.store.schedules.values():
+        async_add_entity(entry)
 
 
-class ScheduleEntity(RestoreEntity, ToggleEntity):
+class ScheduleEntity(ToggleEntity):
     """Defines a base schedule entity."""
 
-    def __init__(
-        self, coordinator, entity_id: str, data: DataCollection = None
-    ) -> None:
+    def __init__(self, coordinator, hass, schedule_id: str, entity_id: str) -> None:
         """Initialize the schedule entity."""
         self.coordinator = coordinator
-        self.entity_id = "{}.{}".format(PLATFORM, entity_id)
-        self.id = entity_id
-        self._name = entity_id.capitalize().replace("_", " #")
-        self.dataCollection = data
-        self._valid = True
-        self._state = STATE_INITIALIZING
+        self.hass = hass
+        self.schedule_id = schedule_id
+        self.entity_id = entity_id
+        self.schedule = None
+
+        self._state = None
         self._timer = None
         self._entry = None
         self._next_trigger = None
@@ -141,6 +127,23 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         self._queued_actions = []
         self._queued_entry = None
         self._retry_timeout = None
+        self._timestamps = []
+        self._next_entries = []
+
+    async def async_update_schedule(self):
+        store = await async_get_registry(self.hass)
+        self.schedule = store.async_get_schedule(self.schedule_id)
+
+        await self.async_register_workday_updates()
+        await self.async_register_sun_updates()
+
+        async def async_startup_finished():
+            await self.async_start_timer()
+
+        if not self.coordinator.is_started:
+            self.coordinator.add_startup_listener(async_startup_finished)
+        else:
+            await self.async_start_timer()
 
     @property
     def device_info(self) -> dict:
@@ -157,9 +160,10 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     @property
     def name(self) -> str:
         """Return the name of the entity."""
-        if self.dataCollection and self.dataCollection.name:
-            return self.dataCollection.name
-        return self._name
+        if self.schedule and self.schedule["name"]:
+            return self.schedule["name"]
+        else:
+            return "Schedule #{}".format(self.schedule_id)
 
     @property
     def should_poll(self) -> bool:
@@ -174,16 +178,49 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     @property
     def icon(self):
         """Return icon."""
-        if self.dataCollection and self.dataCollection.icon:
-            return self.dataCollection.icon
         return "mdi:calendar-clock"
+
+    @property
+    def weekdays(self):
+        return self.schedule["weekdays"] if self.schedule else None
+
+    @property
+    def actions(self):
+        actions = []
+        if not self.schedule:
+            return
+        for timeslot in self.schedule["timeslots"]:
+            for action in timeslot["actions"]:
+                my_action = (
+                    action
+                    if action["service_data"]
+                    else {
+                        "service": action["service"],
+                        "entity_id": action["entity_id"],
+                    }
+                )
+                if my_action not in actions:
+                    actions.append(my_action)
+
+        return actions
+
+    @property
+    def times(self):
+        times = []
+        if not self.schedule:
+            return
+        for timeslot in self.schedule["timeslots"]:
+            times.append(timeslot["start"])
+        return times
 
     @property
     def state_attributes(self):
         """Return the data of the entity."""
-        output = (
-            self.dataCollection.export_data() if self.dataCollection is not None else {}
-        )
+        output = {
+            "weekdays": self.weekdays,
+            "times": self.times,
+            "actions": self.actions,
+        }
         if self._next_trigger:
             output["next_trigger"] = self._next_trigger
 
@@ -197,65 +234,119 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     @property
     def unique_id(self):
         """Return a unique ID to use for this entity."""
-        return f"{self.id}"
+        return f"{self.schedule_id}"
 
     @property
     def is_on(self):
         """Return true if entity is on."""
-        return self._state != STATE_DISABLED
+        return self._state != STATE_OFF
+
+    @callback
+    def async_get_entity_state(self):
+        data = copy.copy(self.schedule)
+        data.update(
+            {
+                "next_entries": self._next_entries,
+                "timestamps": self._timestamps,
+                "name": self.name,
+                "entity_id": self.entity_id,
+            }
+        )
+        return data
+
+    async def async_added_to_hass(self):
+        """Connect to dispatcher listening for entity data notifications."""
+
+        await self.async_update_schedule()
 
     async def async_turn_off(self):
-        if self._state != STATE_DISABLED:
-            self._state = STATE_DISABLED
-            if self._timer:
-                self._timer()
-                self._timer = None
-                self._next_trigger = None
-            await self.async_abort_queued_actions()
-            await self.async_update_ha_state()
+        if self.schedule["enabled"]:
+            await self.coordinator.async_edit_schedule(
+                self.schedule_id, {"enabled": False}
+            )
 
     async def async_turn_on(self):
-        if self._state == STATE_DISABLED:
-            if not self._valid:
-                self._state = STATE_INVALID
-                await self.async_update_ha_state()
-            else:
-                self._state = STATE_WAITING
-                await self.async_start_timer()
+        if not self.schedule["enabled"]:
+            await self.coordinator.async_edit_schedule(
+                self.schedule_id, {"enabled": True}
+            )
+
+    def calculate_next_timeslot(self):
+        """Find the closest timer from now"""
+        now = dt_util.now().replace(microsecond=0)
+        timestamps = []
+
+        for slot in self.schedule["timeslots"]:
+            next_time = calculate_next_start_time(
+                start=slot["start"],
+                weekdays=self.schedule["weekdays"],
+                sun_data=self.sun_data,
+                workday_data=self.workday_data,
+            )
+
+            timestamps.append(next_time)
+
+        relative_time = list(map(lambda x: x - now, timestamps))
+        timeslot_order = sorted(
+            range(len(relative_time)), key=lambda k: relative_time[k]
+        )
+        timestamps_string = list(
+            map(lambda x: dt_util.as_local(x).isoformat(), timestamps)
+        )
+
+        self._next_entries = timeslot_order
+        self._timestamps = timestamps_string
+
+        next_slot = timeslot_order[0]
+        return (next_slot, timestamps[next_slot])
 
     async def async_start_timer(self):
         """Search the entries for nearest timepoint and start timer."""
-        if self.dataCollection is None:
-            return
+        if self._timer:
+            self._timer()
+            self._timer = None
 
-        if self._state == STATE_DISABLED:
-            return
+        if not self.schedule["enabled"]:
+            await self.async_abort_queued_actions()
+            self._state = STATE_OFF
+        else:
+            self._state = STATE_ON
+
+        # make sure to use latest-greatest workday / sun info
+        self.workday_data = self.coordinator.workday_data
+        self.sun_data = self.coordinator.sun_data
 
         _LOGGER.debug("Rescheduling timer for %s" % self.entity_id)
-        await self.async_update_sun_data()
-        await self.async_update_workday_data()
-        (
-            self._entry,
-            has_overlapping_timeslot,
-        ) = self.dataCollection.has_overlapping_timeslot()
 
-        if has_overlapping_timeslot:
-            # execute the action
+        start_timeslot = has_overlapping_timeslot(
+            self.schedule["timeslots"],
+            weekdays=self.schedule["weekdays"],
+            sun_data=self.sun_data,
+            workday_data=self.workday_data,
+        )
+
+        if start_timeslot is not None:
+            # execute the action of the current timeslot
             _LOGGER.debug("We are starting in a timeslot. Proceed with actions.")
+            self._entry = start_timeslot
             await self.async_execute_command()
 
-        (self._entry, timestamp) = self.dataCollection.get_next_entry()
-        self._next_trigger = dt_util.as_local(timestamp).isoformat()
+        (self._entry, timestamp) = self.calculate_next_timeslot()
+
+        self._next_trigger = (
+            dt_util.as_local(timestamp).isoformat()
+            if self.schedule["enabled"]
+            else None
+        )
 
         self._timer = async_track_point_in_utc_time(
-            self.coordinator.hass, self.async_timer_finished, timestamp
+            self.hass, self.async_timer_finished, timestamp
         )
         _LOGGER.debug("The next timer is set for %s" % self._next_trigger)
 
-        self._state = STATE_WAITING
-
         await self.async_update_ha_state()
         self.async_write_ha_state()
+        self.hass.bus.async_fire(EVENT)
 
     async def async_timer_finished(
         self, run_variables, context=None, skip_condition=False
@@ -263,44 +354,45 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         """Callback for timer finished."""
 
         self._timer = None
-        if self._state != STATE_WAITING:
-            return
+        if self._state == STATE_ON:
 
-        _LOGGER.debug("timer for %s is triggered" % self.entity_id)
+            _LOGGER.debug("timer for %s is triggered" % self.entity_id)
 
-        self._state = STATE_TRIGGERED
-        self._next_trigger = None
-        await self.async_update_ha_state()
+            self._state = STATE_TRIGGERED
+            self._next_trigger = None
+            await self.async_update_ha_state()
 
-        # cancel previous actions (previous timeslot)
-        await self.async_abort_queued_actions()
-        # execute the action
-        await self.async_execute_command()
+            # cancel previous actions (previous timeslot)
+            await self.async_abort_queued_actions()
+            # execute the action
+            await self.async_execute_command()
 
-        if (
-            self.dataCollection.get_option_config(self._entry, OPTION_RUN_ONCE)
-            is not None
-        ):
-            _LOGGER.debug(
-                "timer for %s has the run_once option, disabling" % self.entity_id
-            )
-            await self.async_turn_off()
-            return
+            if self.schedule["repeat_type"] == REPEAT_TYPE_PAUSE:
+                _LOGGER.debug(
+                    "%s is configured to turn off after execution, disabling"
+                    % self.entity_id
+                )
+                await self.async_turn_off()
+                return
+            elif self.schedule["repeat_type"] == REPEAT_TYPE_SINGLE:
+                _LOGGER.debug(
+                    "%s is configured to remove after execution, deleting"
+                    % self.entity_id
+                )
+                await self.coordinator.async_delete_schedule(self.schedule_id)
+                return
 
         # wait 1 minute before restarting
         now = dt_util.now().replace(microsecond=0)
         next = now + datetime.timedelta(minutes=1)
 
         self._timer = async_track_point_in_utc_time(
-            self.coordinator.hass, self.async_cooldown_timer_finished, next
+            self.hass, self.async_cooldown_timer_finished, next
         )
 
     async def async_cooldown_timer_finished(self, time):
         """Restart the timer, now that the cooldown timer finished."""
         self._timer = None
-
-        if self._state != STATE_TRIGGERED:
-            return
 
         await self.async_start_timer()
 
@@ -310,17 +402,22 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
         self._queued_entry = self._entry
 
-        service_calls = self.dataCollection.get_service_calls_for_entry(self._entry)
-        for num in range(len(service_calls)):
-            service_call = service_calls[num]
+        actions = self.schedule["timeslots"][self._entry]["actions"]
+        for num in range(len(actions)):
+            action = actions[num]
+            service_call = {
+                "service": action["service"],
+                "entity_id": action["entity_id"],
+                "data": action["service_data"],
+            }
 
             await self.async_queue_action(num, service_call)
 
         for item in self._queued_actions:
-            if item is not None and not self.dataCollection.is_timeslot(self._entry):
+            if item is not None and not self.schedule["timeslots"][self._entry]["stop"]:
                 _LOGGER.debug("allowing devices to recover for 10 mins")
                 self._retry_timeout = async_call_later(
-                    self.coordinator.hass, 600, self.async_abort_queued_actions
+                    self.hass, 600, self.async_abort_queued_actions
                 )
                 break
 
@@ -348,13 +445,10 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                     return
             await self.async_abort_queued_actions()
 
-        if "entity_id" in service_call:
-            action_entity = service_call["entity_id"]
-        else:
-            action_entity = None
+        entity = service_call["entity_id"] if "entity_id" in service_call else None
 
         (res, cb_handle) = self.check_entity_availability(
-            action_entity, async_handle_device_available
+            entity, async_handle_device_available
         )
         if res:
             await self.async_execute_action(service_call)
@@ -363,24 +457,21 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             self._queued_actions.append(cb_handle)
             _LOGGER.debug(
                 "Entity {} is not available right now, action {} will be queued.".format(
-                    service_call["entity_id"], service_call["service"]
+                    entity, service_call["service"]
                 )
             )
 
     async def async_execute_action(self, service_call):
 
-        condition_entities = self.dataCollection.get_condition_entities_for_entry(
-            self._queued_entry
-        )
-        if condition_entities:
+        current_slot = self.schedule["timeslots"][self._queued_entry]
+        if current_slot["conditions"]:
             _LOGGER.debug("validating conditions for %s" % self.entity_id)
-            states = {}
-            for entity in condition_entities:
-                state = await self.coordinator.async_request_state(entity)
-                states[entity] = state
 
-            result = self.dataCollection.validate_conditions_for_entry(
-                self._queued_entry, states
+            results = self.validate_conditions_for_entry(current_slot["conditions"])
+            result = (
+                all(results)
+                if current_slot["condition_type"] == CONDITION_TYPE_AND
+                else any(results)
             )
             if not result:
                 _LOGGER.debug("conditions have failed, skipping execution of actions")
@@ -395,35 +486,53 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         else:
             _LOGGER.debug("Executing action {}.".format(service_call["service"]))
 
-        state = self.coordinator.hass.states.get(service_call["entity_id"])
-
         await async_call_from_config(
-            self.coordinator.hass,
+            self.hass,
             service_call,
         )
 
-    async def async_added_to_hass(self):
-        """Connect to dispatcher listening for entity data notifications."""
-        await super().async_added_to_hass()
+    def validate_conditions_for_entry(self, conditions):
+        """Validate the set of conditions against the results"""
 
-        state = await self.async_get_last_state()
+        results = []
+        for condition in conditions:
+            state = self.hass.states.get(condition["entity_id"])
 
-        if state is not None:
-            self._state = state.state
-            data = DataCollection()
-            self._valid = data.import_data(state.attributes)
-            self.dataCollection = data
+            required = condition["value"]
+            actual = state.state if state else None
 
-        async def async_startup_finished():
-            await self.async_start_timer()
+            if isinstance(required, int):
+                try:
+                    actual = int(float(actual))
+                except:
+                    pass
+            elif isinstance(required, float):
+                try:
+                    actual = float(actual)
+                except:
+                    pass
+            elif isinstance(required, str):
+                actual = str(actual)
 
-        if not self.coordinator.is_started:
-            self.coordinator.add_startup_listener(async_startup_finished)
-        else:
-            await self.async_start_timer()
+            if actual is None or actual == "unavailable" or actual == "unknown":
+                result = False
+            elif condition["match_type"] == MATCH_TYPE_EQUAL:
+                result = actual == required
+            elif condition["match_type"] == MATCH_TYPE_UNEQUAL:
+                result = actual != required
+            elif condition["match_type"] == MATCH_TYPE_BELOW:
+                result = actual < required
+            elif condition["match_type"] == MATCH_TYPE_ABOVE:
+                result = actual > required
+            else:
+                result = False
+
+            # _LOGGER.debug("validating condition for {}: required={}, actual={}, match_type={}, result={}".format(condition["entity_id"], required,actual,condition["match_type"], result))
+            results.append(result)
+        return results
 
     async def async_service_remove(self):
-        self._state = STATE_DISABLED
+        self._state = STATE_OFF
         if self._timer:
             self._timer()
             self._timer = None
@@ -433,22 +542,9 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
     async def async_service_edit(
         self, entries, actions, conditions=None, options=None, name=None
     ):
-
-        data = DataCollection()
-        data.import_from_service(
-            {
-                "entries": entries,
-                "actions": actions,
-                "conditions": conditions,
-                "options": options,
-                "name": name,
-            }
-        )
-        self.dataCollection = data
-
         if self._timer:
             old_state = self._state
-            self._state = STATE_DISABLED
+            self._state = STATE_OFF
             self._timer()
             self._timer = None
             self._state = old_state
@@ -458,84 +554,106 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
 
         await self.async_update_ha_state()
 
-    async def async_update(self):
-        """Update Scheduler entity."""
-
-        await self.coordinator.async_request_refresh()
-
     async def async_will_remove_from_hass(self):
         """Connect to dispatcher listening for entity data notifications."""
 
-        await super().async_will_remove_from_hass()
+        if self._timer:
+            self._timer()
+        await self.async_abort_queued_actions()
 
-        entity_registry = (
-            await self.coordinator.hass.helpers.entity_registry.async_get_registry()
-        )
-        entity_registry.async_remove(self.entity_id)
-
-    async def async_update_sun_data(self):
-        if not self.dataCollection or not self.dataCollection.has_sun():
-            return
-
-        self.dataCollection.update_sun_data(self.coordinator.sun_data)
-
-        if not self._registered_sun_update:
-            await self.async_register_sun_updates()
+        self.coordinator.remove_sun_listener(self.schedule_id)
+        self.coordinator.remove_workday_listener(self.schedule_id)
 
     async def async_register_sun_updates(self):
-        async def async_sun_updated(sun_data):
-            if self._state != STATE_WAITING:
-                return
-            if not self.dataCollection.has_sun(self._entry):
-                return
+        has_sun = False
+        for item in self.schedule["timeslots"]:
+            if item["start"] and (
+                SUN_EVENT_SUNRISE in item["start"] or SUN_EVENT_SUNSET in item["start"]
+            ):
+                has_sun = True
+                break
+            elif item["stop"] and (
+                SUN_EVENT_SUNRISE in item["stop"] or SUN_EVENT_SUNSET in item["stop"]
+            ):
+                has_sun = True
+                break
+        if not has_sun:
+            return
+        elif self._registered_sun_update:
+            return
 
-            should_update = self.dataCollection.update_sun_data(sun_data, self._entry)
-            if should_update:
-                self._state = STATE_DISABLED
-                self._timer()
-                self._timer = None
-                self._state = STATE_WAITING
+        @callback
+        async def async_sun_updated(sun_data):
+            if self._entry is None:
+                return
+            slot = self.schedule["timeslots"][self._entry]
+
+            ts_old = calculate_next_start_time(
+                start=slot["start"],
+                weekdays=self.schedule["weekdays"],
+                sun_data=self.sun_data,
+                workday_data=self.workday_data,
+            )
+            ts_new = calculate_next_start_time(
+                start=slot["start"],
+                weekdays=self.schedule["weekdays"],
+                sun_data=sun_data,
+                workday_data=self.workday_data,
+            )
+            delta = (ts_old - ts_new).total_seconds()
+
+            if abs(delta) >= 60 and abs(delta) <= 3600:
+                # only reschedule if the drift is more than 1 min, and not hours (next day)
                 await self.async_start_timer()
 
-        self.coordinator.add_sun_listener(async_sun_updated)
+        self.coordinator.add_sun_listener(self.schedule_id, async_sun_updated)
         self._registered_sun_update = True
 
-    async def async_update_workday_data(self):
-        if not self.dataCollection or not self.dataCollection.has_workday():
-            return
-        self.dataCollection.update_workday_data(self.coordinator.workday_data)
-
-        if not self._registered_workday_update:
-            await self.async_register_workday_updates()
-
     async def async_register_workday_updates(self):
-        async def async_workday_updated(workday_data):
-            if self._state != STATE_WAITING:
-                return
-            if not self.dataCollection.has_workday(self._entry):
-                return
+        if (
+            DAY_TYPE_WORKDAY not in self.schedule["weekdays"]
+            and DAY_TYPE_WEEKEND not in self.schedule["weekdays"]
+        ):
+            return
+        elif self._registered_workday_update:
+            return
 
-            should_update = self.dataCollection.update_workday_data(
-                workday_data, self._entry
+        @callback
+        async def async_workday_updated(workday_data):
+            if self._entry is None:
+                return
+            slot = self.schedule["timeslots"][self._entry]
+
+            ts_old = calculate_next_start_time(
+                start=slot["start"],
+                weekdays=self.schedule["weekdays"],
+                sun_data=self.sun_data,
+                workday_data=self.workday_data,
             )
-            if should_update:
-                self._state = STATE_DISABLED
-                self._timer()
-                self._timer = None
-                self._state = STATE_WAITING
+            ts_new = calculate_next_start_time(
+                start=slot["start"],
+                weekdays=self.schedule["weekdays"],
+                sun_data=self.sun_data,
+                workday_data=workday_data,
+            )
+            delta = (ts_old - ts_new).total_seconds()
+
+            if abs(delta) >= 3600:
+                # item needs to be rescheduled
                 await self.async_start_timer()
 
-        self.coordinator.add_workday_listener(async_workday_updated)
+        self.coordinator.add_workday_listener(self.schedule_id, async_workday_updated)
         self._registered_workday_update = True
 
     def check_entity_availability(self, action_entity, cb_func):
 
-        entity_list = self.dataCollection.get_condition_entities_for_entry(
-            self._queued_entry
-        )
+        entity_list = []
 
-        if not entity_list:
-            entity_list = []
+        current_slot = self.schedule["timeslots"][self._queued_entry]
+
+        for item in current_slot["conditions"]:
+            entity_list.append(item["entity_id"])
+
         if action_entity:
             entity_list.append(action_entity)
 
@@ -550,7 +668,7 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
                 )
             )
             for entity in entity_list:
-                state = self.coordinator.hass.states.get(entity)
+                state = self.hass.states.get(entity)
                 if (
                     state is None
                     or state.state == "unavailable"
@@ -565,14 +683,14 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
         listener_handles = []
 
         for entity in entity_list:
-            state = self.coordinator.hass.states.get(entity)
+            state = self.hass.states.get(entity)
             if (
                 state is None
                 or state.state == "unavailable"
                 or state.state == "unknown"
             ):
                 listener_handle = async_track_state_change(
-                    self.coordinator.hass, entity, async_check_entities_available
+                    self.hass, entity, async_check_entities_available
                 )
                 listener_handles.append(listener_handle)
 
@@ -584,3 +702,50 @@ class ScheduleEntity(RestoreEntity, ToggleEntity):
             return (False, listener_handle_remover)
         else:
             return (True, None)
+
+
+class MigrationScheduleEntity(RestoreEntity, ToggleEntity):
+    """Defines a base schedule entity."""
+
+    def __init__(self, coordinator, entity_id: str) -> None:
+        self.coordinator = coordinator
+        self.entity_id = "{}.{}".format(PLATFORM, entity_id)
+        self.id = entity_id
+
+    @property
+    def is_on(self):
+        """Return true if entity is on."""
+        return False
+
+    @property
+    def available(self):
+        """Return True if entity is available."""
+        return False
+
+    @property
+    def unique_id(self):
+        """Return a unique ID to use for this entity."""
+        return f"{self.id}"
+
+    async def async_added_to_hass(self):
+        """Connect to dispatcher listening for entity data notifications."""
+        await super().async_added_to_hass()
+
+        state = await self.async_get_last_state()
+
+        if state is not None and state.attributes:
+            if "entries" in state.attributes:
+                entry = migrate_old_entity(state.attributes, self.id)
+                entry["enabled"] = state.state != "off"
+                _LOGGER.info("Migrating schedule {}".format(entry["schedule_id"]))
+                self.coordinator.async_create_schedule(entry)
+
+        await self.async_remove()
+
+    async def async_will_remove_from_hass(self):
+        """Connect to dispatcher listening for entity data notifications."""
+
+        await super().async_will_remove_from_hass()
+
+        entity_registry = await self.hass.helpers.entity_registry.async_get_registry()
+        entity_registry.async_remove(self.entity_id)
