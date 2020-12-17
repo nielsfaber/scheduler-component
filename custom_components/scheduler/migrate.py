@@ -123,6 +123,14 @@ def migrate_old_entity(data: dict, entity_id: str):
                 if "entity" in item:
                     action["entity_id"] = item["entity"]
                     del item["entity"]
+                    if (
+                        "." not in action["entity_id"]
+                        and "service" in action
+                        and "." in action["service"]
+                    ):
+                        action["entity_id"] = "{}.{}".format(
+                            action["service"].split(".").pop(0), action["entity_id"]
+                        )
                 if "service" in item:
                     service = item["service"]
                     if "." not in service and "." in action["entity_id"]:

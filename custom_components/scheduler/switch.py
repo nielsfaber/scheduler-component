@@ -7,6 +7,7 @@ from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.const import STATE_ALARM_TRIGGERED as STATE_TRIGGERED
 from homeassistant.const import STATE_OFF, STATE_ON, SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
 from homeassistant.core import callback
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers.device_registry import async_entries_for_config_entry
 from homeassistant.helpers.entity import ToggleEntity
 from homeassistant.helpers.entity_registry import async_entries_for_device
@@ -31,6 +32,8 @@ from .const import (
     MATCH_TYPE_UNEQUAL,
     REPEAT_TYPE_PAUSE,
     REPEAT_TYPE_SINGLE,
+    RUN_ACTION_SCHEMA,
+    SERVICE_RUN_ACTION,
     VERSION,
 )
 from .helpers import calculate_next_start_time, has_overlapping_timeslot
@@ -105,6 +108,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     for entry in coordinator.store.schedules.values():
         async_add_entity(entry)
+
+    platform = entity_platform.current_platform.get()
+
+    platform.async_register_entity_service(
+        SERVICE_RUN_ACTION, RUN_ACTION_SCHEMA, "async_service_run_action"
+    )
 
 
 class ScheduleEntity(ToggleEntity):
@@ -300,7 +309,7 @@ class ScheduleEntity(ToggleEntity):
         next_slot = timeslot_order[0]
         return (next_slot, timestamps[next_slot])
 
-    async def async_start_timer(self):
+    async def async_start_timer(self, evaluate_initial_timeslot=True):
         """Search the entries for nearest timepoint and start timer."""
         if self._timer:
             self._timer()
@@ -318,18 +327,19 @@ class ScheduleEntity(ToggleEntity):
 
         _LOGGER.debug("Rescheduling timer for %s" % self.entity_id)
 
-        start_timeslot = has_overlapping_timeslot(
-            self.schedule["timeslots"],
-            weekdays=self.schedule["weekdays"],
-            sun_data=self.sun_data,
-            workday_data=self.workday_data,
-        )
+        if evaluate_initial_timeslot:
+            start_timeslot = has_overlapping_timeslot(
+                self.schedule["timeslots"],
+                weekdays=self.schedule["weekdays"],
+                sun_data=self.sun_data,
+                workday_data=self.workday_data,
+            )
 
-        if start_timeslot is not None:
-            # execute the action of the current timeslot
-            _LOGGER.debug("We are starting in a timeslot. Proceed with actions.")
-            self._entry = start_timeslot
-            await self.async_execute_command()
+            if start_timeslot is not None:
+                # execute the action of the current timeslot
+                _LOGGER.debug("We are starting in a timeslot. Proceed with actions.")
+                self._entry = start_timeslot
+                await self.async_execute_command()
 
         (self._entry, timestamp) = self.calculate_next_timeslot()
 
@@ -342,7 +352,8 @@ class ScheduleEntity(ToggleEntity):
         self._timer = async_track_point_in_utc_time(
             self.hass, self.async_timer_finished, timestamp
         )
-        _LOGGER.debug("The next timer is set for %s" % self._next_trigger)
+        if self._next_trigger:
+            _LOGGER.debug("The next timer is set for %s" % self._next_trigger)
 
         await self.async_update_ha_state()
         self.async_write_ha_state()
@@ -394,7 +405,7 @@ class ScheduleEntity(ToggleEntity):
         """Restart the timer, now that the cooldown timer finished."""
         self._timer = None
 
-        await self.async_start_timer()
+        await self.async_start_timer(False)
 
     async def async_execute_command(self):
         """Helper to execute command."""
@@ -434,7 +445,7 @@ class ScheduleEntity(ToggleEntity):
     async def async_queue_action(self, num, service_call):
         async def async_handle_device_available():
 
-            await self.async_execute_action(service_call)
+            await self.async_execute_action(service_call, self._queued_entry)
 
             if self._queued_actions[num]:  # remove state change listener from queue
                 self._queued_actions[num]()
@@ -451,7 +462,7 @@ class ScheduleEntity(ToggleEntity):
             entity, async_handle_device_available
         )
         if res:
-            await self.async_execute_action(service_call)
+            await self.async_execute_action(service_call, self._queued_entry)
             self._queued_actions.append(None)
         else:
             self._queued_actions.append(cb_handle)
@@ -461,9 +472,9 @@ class ScheduleEntity(ToggleEntity):
                 )
             )
 
-    async def async_execute_action(self, service_call):
+    async def async_execute_action(self, service_call, timeslot):
 
-        current_slot = self.schedule["timeslots"][self._queued_entry]
+        current_slot = self.schedule["timeslots"][timeslot]
         if current_slot["conditions"]:
             _LOGGER.debug("validating conditions for %s" % self.entity_id)
 
@@ -604,7 +615,7 @@ class ScheduleEntity(ToggleEntity):
 
             if abs(delta) >= 60 and abs(delta) <= 3600:
                 # only reschedule if the drift is more than 1 min, and not hours (next day)
-                await self.async_start_timer()
+                await self.async_start_timer(False)
 
         self.coordinator.add_sun_listener(self.schedule_id, async_sun_updated)
         self._registered_sun_update = True
@@ -640,7 +651,7 @@ class ScheduleEntity(ToggleEntity):
 
             if abs(delta) >= 3600:
                 # item needs to be rescheduled
-                await self.async_start_timer()
+                await self.async_start_timer(False)
 
         self.coordinator.add_workday_listener(self.schedule_id, async_workday_updated)
         self._registered_workday_update = True
@@ -702,6 +713,42 @@ class ScheduleEntity(ToggleEntity):
             return (False, listener_handle_remover)
         else:
             return (True, None)
+
+    async def async_service_run_action(self, time=None):
+
+        if time:
+            time = dt_util.now().replace(
+                microsecond=0, hour=time.hour, minute=time.minute, second=time.second
+            )
+
+        overlapping_timeslot = has_overlapping_timeslot(
+            self.schedule["timeslots"],
+            weekdays=self.schedule["weekdays"],
+            sun_data=self.sun_data,
+            workday_data=self.workday_data,
+            time=time,
+        )
+
+        slot = None
+        if overlapping_timeslot is not None:
+            slot = overlapping_timeslot
+        elif time is None and len(self.schedule["timeslots"]) == 1:
+            slot = 0
+        else:
+            return
+
+        _LOGGER.debug(
+            "Executing actions for {}, timeslot {}".format(self.entity_id, slot)
+        )
+        actions = self.schedule["timeslots"][slot]["actions"]
+        for num in range(len(actions)):
+            action = actions[num]
+            service_call = {
+                "service": action["service"],
+                "entity_id": action["entity_id"],
+                "data": action["service_data"],
+            }
+            await self.async_execute_action(service_call, slot)
 
 
 class MigrationScheduleEntity(RestoreEntity, ToggleEntity):

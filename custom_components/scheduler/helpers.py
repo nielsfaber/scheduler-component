@@ -146,11 +146,12 @@ def is_allowed_day(date_obj: datetime.datetime, weekdays=None, workday_data=None
 
 
 def calculate_next_start_time(
-    start=None, weekdays=None, sun_data=None, workday_data=None
+    start=None, weekdays=None, sun_data=None, workday_data=None, now=None
 ):
     """Get datetime object with closest occurance based on time + weekdays input"""
     nexttime = calculate_datetime_from_entry(start, sun_data=sun_data)
-    now = dt_util.now().replace(microsecond=0)
+    if not now:
+        now = dt_util.now().replace(microsecond=0)
 
     # check if time has already passed for today
     iterations = 0
@@ -175,17 +176,23 @@ def calculate_next_start_time(
 
 
 def is_between_start_time_and_end_time(
-    start=None, stop=None, weekdays=None, sun_data=None, workday_data=None
+    start=None, stop=None, weekdays=None, sun_data=None, workday_data=None, time=None
 ):
     """Get datetime object with closest occurance based on time + weekdays input"""
 
     start_time = calculate_datetime_from_entry(start, sun_data)
-    end_time = calculate_datetime_from_entry(stop, sun_data)
+    if stop:
+        end_time = calculate_datetime_from_entry(stop, sun_data)
+    else:
+        end_time = start_time + datetime.timedelta(minutes=1)
 
     if end_time < start_time:
         end_time = end_time + datetime.timedelta(days=1)
 
-    now = dt_util.now().replace(microsecond=0)
+    if time:
+        now = time
+    else:
+        now = dt_util.now().replace(microsecond=0)
 
     # check if time has already passed for today
     iterations = 0
@@ -197,21 +204,22 @@ def is_between_start_time_and_end_time(
         iterations = iterations + 1
 
     # check if timer is restricted in days of the week
-    while (
-        not is_allowed_day(start_time, weekdays=weekdays, workday_data=workday_data)
-        and iterations < 100
-    ):
-        start_time = start_time + datetime.timedelta(days=1)
-        end_time = end_time + datetime.timedelta(days=1)
-        iterations = iterations + 1
+    if not time:
+        while (
+            not is_allowed_day(start_time, weekdays=weekdays, workday_data=workday_data)
+            and iterations < 100
+        ):
+            start_time = start_time + datetime.timedelta(days=1)
+            end_time = end_time + datetime.timedelta(days=1)
+            iterations = iterations + 1
 
-    if iterations == 100:
-        raise Exception("failed to calculate timestamp")
+        if iterations == 100:
+            raise Exception("failed to calculate timestamp")
 
     delta_start = (start_time - now).total_seconds()
     delta_end = (end_time - now).total_seconds()
 
-    if delta_start < 0 and delta_end > 0:
+    if delta_start <= 0 and delta_end > 0:
         return True
     else:
         return False
@@ -226,21 +234,20 @@ def parse_iso_timestamp(time_string):
     return time_obj
 
 
-def has_overlapping_timeslot(slots, weekdays=None, sun_data=None, workday_data=None):
+def has_overlapping_timeslot(
+    slots, weekdays=None, sun_data=None, workday_data=None, time=None
+):
     """Check if there are timeslots which overlapping with now"""
 
     for i in range(len(slots)):
         slot = slots[i]
-        if (
-            "stop" in slot
-            and slot["stop"]
-            and is_between_start_time_and_end_time(
-                start=slot["start"],
-                stop=slot["stop"],
-                weekdays=weekdays,
-                sun_data=sun_data,
-                workday_data=workday_data,
-            )
+        if is_between_start_time_and_end_time(
+            start=slot["start"],
+            stop=slot["stop"],
+            weekdays=weekdays,
+            sun_data=sun_data,
+            workday_data=workday_data,
+            time=time,
         ):
             return i
 
