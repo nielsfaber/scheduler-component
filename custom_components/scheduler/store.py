@@ -154,6 +154,7 @@ class ScheduleStorage:
     async def async_delete(self):
         """Delete config."""
         _LOGGER.warning("Removing scheduler configuration data!")
+        self.schedules = {}
         await self._store.async_remove()
 
     @callback

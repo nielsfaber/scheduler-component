@@ -83,7 +83,9 @@ async def async_unload_entry(hass, entry):
         )
     )
     if unload_ok:
-        hass.data[DOMAIN] = {}
+        coordinator = hass.data[DOMAIN]["coordinator"]
+        await coordinator.async_delete()
+        del hass.data[DOMAIN]
     return unload_ok
 
 
@@ -250,3 +252,6 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         if state:
             return state.state
         return None
+
+    async def async_delete(self):
+        await self.store.async_delete()
