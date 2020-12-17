@@ -1,1 +1,10 @@
-# no services
+
+run_action:
+  description: Execute the action of a schedule, optionally at a given time.
+  fields:
+    entity_id:
+      description: Identifier of the schedule entity.
+      example: "switch.schedule_abcdef"
+    time:
+      description: Time (optional) for which to evaluate the action (only useful for schedules with multiple timeslot)
+      example: '"12:00"'

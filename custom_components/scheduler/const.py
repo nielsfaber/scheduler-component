@@ -1,5 +1,6 @@
 """Store constants."""
 import voluptuous as vol
+from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.helpers import config_validation as cv
 
 VERSION = "3.0.0b"
@@ -99,5 +100,13 @@ SCHEDULE_SCHEMA = vol.Schema(
             ]
         ),
         vol.Optional("name"): cv.string,
+    }
+)
+
+SERVICE_RUN_ACTION = "run_action"
+RUN_ACTION_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_ENTITY_ID): cv.entity_ids,
+        vol.Optional("time"): cv.time
     }
 )
