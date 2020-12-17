@@ -227,27 +227,27 @@ def is_between_start_time_and_end_time(
 
 def parse_iso_timestamp(time_string):
     time_obj = datetime.datetime.strptime(
-        time_string[: len(time_string) - 3] + time_string[len(time_string) - 2 :],
+        time_string[: len(time_string) - 3] + time_string[len(time_string) - 2:],
         "%Y-%m-%dT%H:%M:%S%z",
     )
 
     return time_obj
 
 
-def has_overlapping_timeslot(slots, weekdays=None, sun_data=None, workday_data=None,time=None):
+def has_overlapping_timeslot(
+    slots, weekdays=None, sun_data=None, workday_data=None, time=None
+):
     """Check if there are timeslots which overlapping with now"""
 
     for i in range(len(slots)):
         slot = slots[i]
-        if (
-            is_between_start_time_and_end_time(
-                start=slot["start"],
-                stop=slot["stop"],
-                weekdays=weekdays,
-                sun_data=sun_data,
-                workday_data=workday_data,
-                time=time
-            )
+        if is_between_start_time_and_end_time(
+            start=slot["start"],
+            stop=slot["stop"],
+            weekdays=weekdays,
+            sun_data=sun_data,
+            workday_data=workday_data,
+            time=time,
         ):
             return i
 

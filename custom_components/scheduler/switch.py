@@ -719,19 +719,19 @@ class ScheduleEntity(ToggleEntity):
         else:
             return (True, None)
 
-    async def async_service_run_action(
-        self, time=None
-    ):
+    async def async_service_run_action(self, time=None):
 
         if time:
-            time = dt_util.now().replace(microsecond=0, hour=time.hour, minute=time.minute, second=time.second)
+            time = dt_util.now().replace(
+                microsecond=0, hour=time.hour, minute=time.minute, second=time.second
+            )
 
         overlapping_timeslot = has_overlapping_timeslot(
             self.schedule["timeslots"],
             weekdays=self.schedule["weekdays"],
             sun_data=self.sun_data,
             workday_data=self.workday_data,
-            time=time
+            time=time,
         )
 
         slot = None
@@ -742,7 +742,9 @@ class ScheduleEntity(ToggleEntity):
         else:
             return
 
-        _LOGGER.debug("Executing actions for {}, timeslot {}".format(self.entity_id, slot))
+        _LOGGER.debug(
+            "Executing actions for {}, timeslot {}".format(self.entity_id, slot)
+        )
         actions = self.schedule["timeslots"][slot]["actions"]
         for num in range(len(actions)):
             action = actions[num]
