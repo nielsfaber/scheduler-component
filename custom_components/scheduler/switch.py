@@ -370,7 +370,7 @@ class ScheduleEntity(ToggleEntity):
         """Callback for timer finished."""
 
         self._timer = None
-        if self._state == STATE_ON:
+        if self.schedule["enabled"]:
 
             _LOGGER.debug("timer for %s is triggered" % self.entity_id)
 
@@ -414,6 +414,8 @@ class ScheduleEntity(ToggleEntity):
 
     async def async_execute_command(self):
         """Helper to execute command."""
+        if not self.schedule["enabled"]:
+            return
         _LOGGER.debug("start of executing actions for %s" % self.entity_id)
 
         self._queued_entry = self._entry
