@@ -2,15 +2,17 @@
 import copy
 import datetime
 import logging
+import voluptuous as vol
 
 from homeassistant.components.switch import DOMAIN as PLATFORM
-from homeassistant.helpers import entity_platform
+from homeassistant.helpers import (entity_platform, config_validation as cv)
 from homeassistant.const import (
     STATE_ALARM_TRIGGERED as STATE_TRIGGERED,
     STATE_OFF,
     STATE_ON,
     SUN_EVENT_SUNRISE,
-    SUN_EVENT_SUNSET
+    SUN_EVENT_SUNSET,
+    ATTR_ENTITY_ID,
 )
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import async_entries_for_config_entry
@@ -38,8 +40,6 @@ from .const import (
     REPEAT_TYPE_PAUSE,
     REPEAT_TYPE_SINGLE,
     VERSION,
-    SERVICE_RUN_ACTION,
-    RUN_ACTION_SCHEMA,
 )
 from .helpers import calculate_next_start_time, has_overlapping_timeslot
 from .migrate import migrate_old_entity
@@ -47,6 +47,15 @@ from .store import ScheduleEntry, async_get_registry
 
 EVENT = "scheduler_updated"
 _LOGGER = logging.getLogger(__name__)
+
+
+SERVICE_RUN_ACTION = "run_action"
+RUN_ACTION_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_ENTITY_ID): cv.entity_ids,
+        vol.Optional("time"): cv.time
+    }
+)
 
 
 def entity_exists_in_hass(hass, entity_id):
@@ -98,7 +107,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         schedule_id = schedule.schedule_id
         name = schedule.name
 
-        if name:
+        if name and len(slugify(name)):
             entity_id = "{}.schedule_{}".format(PLATFORM, slugify(name))
         else:
             entity_id = "{}.schedule_{}".format(PLATFORM, schedule_id)

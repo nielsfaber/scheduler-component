@@ -2,6 +2,7 @@ import datetime
 import logging
 import math
 import re
+import voluptuous as vol
 
 import homeassistant.util.dt as dt_util
 from homeassistant.const import SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
@@ -252,3 +253,21 @@ def has_overlapping_timeslot(
             return i
 
     return None
+
+
+def validate_time(time):
+    res = OffsetTimePattern.match(time)
+    if not res:
+        if dt_util.parse_time(time):
+            return time
+        else:
+            raise vol.Invalid("Invalid time entered: {}".format(time))
+    else:
+        if res.group(1) not in [SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET]:
+            raise vol.Invalid("Invalid time entered: {}".format(time))
+        elif res.group(2) not in ['+', '-']:
+            raise vol.Invalid("Invalid time entered: {}".format(time))
+        elif not dt_util.parse_time(res.group(3)):
+            raise vol.Invalid("Invalid time entered: {}".format(time))
+        else:
+            return time

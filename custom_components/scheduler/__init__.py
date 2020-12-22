@@ -146,9 +146,16 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         _LOGGER.debug("async_edit_schedule")
         if schedule_id not in self.hass.data[DOMAIN]["schedules"]:
             return
+        item = self.async_get_schedule(schedule_id)
+
+        if "name" in data and item["name"] != data["name"]:
+            data["name"] = data["name"].strip()
+        elif "name" in data:
+            del data["name"]
+
         entry = self.store.async_update_schedule(schedule_id, data)
         entity = self.hass.data[DOMAIN]["schedules"][schedule_id]
-        if "name" in data and data["name"]:
+        if "name" in data:
             entity_registry = await get_entity_registry(self.hass)
             entity_registry.async_remove(entity.entity_id)
             self._create_schedule_handler(entry)
