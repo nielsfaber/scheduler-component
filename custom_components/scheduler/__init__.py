@@ -9,7 +9,7 @@ from homeassistant.const import (
     SUN_EVENT_SUNRISE,
     SUN_EVENT_SUNSET,
 )
-from homeassistant.core import HomeAssistant, asyncio
+from homeassistant.core import HomeAssistant, asyncio, CoreState
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_registry import (
@@ -110,7 +110,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         async_track_state_change(self.hass, SUN_ENTITY, self.async_sun_updated)
         async_track_state_change(self.hass, WORKDAY_ENTITY, self.async_workday_updated)
 
-        def handle_startup(event):
+        def handle_startup(event=None):
             self.update_sun_data()
             self.update_workday_data()
 
@@ -121,7 +121,10 @@ class SchedulerCoordinator(DataUpdateCoordinator):
                 self.async_start_schedules,
             )
 
-        hass.bus.async_listen(EVENT_HOMEASSISTANT_STARTED, handle_startup)
+        if hass.state == CoreState.running:
+            handle_startup()
+        else:
+            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, handle_startup)
 
     def async_get_schedule(self, schedule_id: str):
         if schedule_id not in self.hass.data[DOMAIN]["schedules"]:
