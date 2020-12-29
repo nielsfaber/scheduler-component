@@ -20,7 +20,7 @@ from homeassistant.helpers.entity import ToggleEntity
 from homeassistant.helpers.entity_registry import async_entries_for_device
 from homeassistant.helpers.event import (
     async_call_later,
-    async_track_point_in_utc_time,
+    async_track_point_in_time,
     async_track_state_change,
 )
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -365,7 +365,7 @@ class ScheduleEntity(ToggleEntity):
             else None
         )
 
-        self._timer = async_track_point_in_utc_time(
+        self._timer = async_track_point_in_time(
             self.hass, self.async_timer_finished, timestamp
         )
         if self._next_trigger:
@@ -413,7 +413,7 @@ class ScheduleEntity(ToggleEntity):
         now = dt_util.now().replace(microsecond=0)
         next = now + datetime.timedelta(minutes=1)
 
-        self._timer = async_track_point_in_utc_time(
+        self._timer = async_track_point_in_time(
             self.hass, self.async_cooldown_timer_finished, next
         )
 

@@ -54,9 +54,10 @@ def calculate_datetime_from_entry(time: str, sun_data=None):
     res = OffsetTimePattern.match(time)
     if not res:
         time = dt_util.parse_time(time)
+        time = time.replace(tzinfo=dt_util.now().tzinfo)
 
-        today = dt_util.start_of_local_day()
-        time_obj = dt_util.as_utc(datetime.datetime.combine(today, time))
+        today = dt_util.now().date()
+        time_obj = datetime.datetime.combine(today, time)
     else:
         sun_event = (
             SUN_EVENT_SUNRISE if res.group(1) == SUN_EVENT_SUNRISE else SUN_EVENT_SUNSET
