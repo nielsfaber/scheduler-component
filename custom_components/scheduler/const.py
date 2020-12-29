@@ -1,6 +1,6 @@
 """Store constants."""
 
-VERSION = "3.0.0"
+VERSION = "3.0.1"
 
 DOMAIN = "scheduler"
 ENTITY_ID_FORMAT = DOMAIN + ".{}"
