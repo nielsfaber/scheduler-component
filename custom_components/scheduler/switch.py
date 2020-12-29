@@ -266,6 +266,8 @@ class ScheduleEntity(ToggleEntity):
     @callback
     def async_get_entity_state(self):
         data = copy.copy(self.schedule)
+        if not data:
+            data = {}
         data.update(
             {
                 "next_entries": self._next_entries,
@@ -553,7 +555,10 @@ class ScheduleEntity(ToggleEntity):
             else:
                 result = False
 
-            # _LOGGER.debug("validating condition for {}: required={}, actual={}, match_type={}, result={}".format(condition["entity_id"], required,actual,condition["match_type"], result))
+            # _LOGGER.debug(
+            #     "validating condition for {}: required={}, actual={}, match_type={}, result={}"
+            #     .format(condition["entity_id"], required,actual,condition["match_type"], result)
+            # )
             results.append(result)
         return results
 
