@@ -10,6 +10,7 @@ from homeassistant.const import (
     STATE_ALARM_TRIGGERED as STATE_TRIGGERED,
     STATE_OFF,
     STATE_ON,
+    STATE_UNKNOWN,
     SUN_EVENT_SUNRISE,
     SUN_EVENT_SUNSET,
     ATTR_ENTITY_ID,
@@ -311,7 +312,8 @@ class ScheduleEntity(ToggleEntity):
             timestamps.append(next_time)
 
         if not len(timestamps):
-            raise Exception("schedule has no time entries")
+            _LOGGER.error("schedule {} has no time entries".format(self.entity_id))
+            return (None, None)
 
         relative_time = list(map(lambda x: x - now, timestamps))
         timeslot_order = sorted(
@@ -360,18 +362,21 @@ class ScheduleEntity(ToggleEntity):
                 await self.async_execute_command()
 
         (self._entry, timestamp) = self.calculate_next_timeslot()
+        if self._entry is None:
+            self._state = STATE_UNKNOWN
+        else:
 
-        self._next_trigger = (
-            dt_util.as_local(timestamp).isoformat()
-            if self.schedule["enabled"]
-            else None
-        )
+            self._next_trigger = (
+                dt_util.as_local(timestamp).isoformat()
+                if self.schedule["enabled"]
+                else None
+            )
 
-        self._timer = async_track_point_in_time(
-            self.hass, self.async_timer_finished, timestamp
-        )
-        if self._next_trigger:
-            _LOGGER.debug("The next timer is set for %s" % self._next_trigger)
+            self._timer = async_track_point_in_time(
+                self.hass, self.async_timer_finished, timestamp
+            )
+            if self._next_trigger:
+                _LOGGER.debug("The next timer is set for %s" % self._next_trigger)
 
         await self.async_update_ha_state()
         self.async_write_ha_state()
