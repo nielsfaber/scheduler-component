@@ -8,3 +8,45 @@ run_action:
     time:
       description: Time (optional) for which to evaluate the action (only useful for schedules with multiple timeslot)
       example: '"12:00"'
+
+remove:
+  description: Remove a scheduler entity
+  fields:
+    entity_id:
+      description: Identifier of the scheduler entity.
+      example: "switch.schedule_abcdef"
+
+add:
+  description: Add a scheduler entitity
+  fields:
+    weekdays:
+      description: days of the week for which the schedule should be repeated
+      example: '["daily"]'
+    timeslots:
+      description: list of timeslots with their actions and optionally conditions (should be kept the same for all timeslots)
+      example: '[{start: "12:00", stop: "13:00", actions: [{service: "light.turn_on", entity_id: "light.my_lamp", service_data: {brightness: 200}}]}]'
+    repeat_type:
+      description: Repeat type
+      example: '"repeat"'
+    name:
+      description: Friendly name for the schedule
+      example: 'My schedule'
+
+edit:
+  description: Edit a scheduler entitity
+  fields:
+    entity_id:
+      description: Identifier of the scheduler entity.
+      example: "switch.schedule_abcdef"
+    weekdays:
+      description: days of the week for which the schedule should be repeated
+      example: '["daily"]'
+    timeslots:
+      description: list of timeslots with their actions and optionally conditions (should be kept the same for all timeslots)
+      example: '[{start: "12:00", stop: "13:00", actions: [{service: "light.turn_on", entity_id: "light.my_lamp", service_data: {brightness: 200}}]}]'
+    repeat_type:
+      description: Repeat type
+      example: '"repeat"'
+    name:
+      description: Friendly name for the schedule
+      example: 'My schedule'

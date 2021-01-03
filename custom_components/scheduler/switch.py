@@ -49,12 +49,12 @@ from .const import (
     REPEAT_TYPE_PAUSE,
     REPEAT_TYPE_SINGLE,
     VERSION,
+    EVENT,
 )
 from .helpers import calculate_next_start_time, has_overlapping_timeslot
 from .migrate import migrate_old_entity
 from .store import ScheduleEntry, async_get_registry
 
-EVENT = "scheduler_updated"
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -634,6 +634,8 @@ class ScheduleEntity(ToggleEntity):
 
         self.coordinator.remove_sun_listener(self.schedule_id)
         self.coordinator.remove_workday_listener(self.schedule_id)
+
+        await super().async_will_remove_from_hass()
 
     async def async_register_sun_updates(self):
         has_sun = False
