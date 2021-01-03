@@ -29,6 +29,14 @@ from homeassistant.helpers.service import async_call_from_config
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
+from homeassistant.components.climate import (
+    SERVICE_SET_TEMPERATURE,
+    SERVICE_SET_HVAC_MODE,
+    ATTR_HVAC_MODE,
+    ATTR_TEMPERATURE,
+    DOMAIN as CLIMATE_DOMAIN,
+)
+
 from .const import (
     CONDITION_TYPE_AND,
     DAY_TYPE_WEEKEND,
@@ -437,6 +445,7 @@ class ScheduleEntity(ToggleEntity):
         _LOGGER.debug("start of executing actions for %s" % self.entity_id)
 
         actions = self.schedule["timeslots"][self._entry]["actions"]
+        service_calls = []
         for num in range(len(actions)):
             action = actions[num]
             service_call = {
@@ -444,8 +453,34 @@ class ScheduleEntity(ToggleEntity):
                 "entity_id": action["entity_id"],
                 "data": action["service_data"],
             }
+            if (
+                service_call["service"] == "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE)
+                and ATTR_HVAC_MODE in service_call["data"]
+                and ATTR_TEMPERATURE in service_call["data"]
+                and len(service_call["data"]) == 2
+            ):
+                # fix for climate integrations which don't support setting hvac_mode and temperature together
+                service_calls.extend([
+                    {
+                        "service": "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE),
+                        "entity_id": service_call["entity_id"],
+                        "data": {
+                            ATTR_HVAC_MODE: service_call["data"][ATTR_HVAC_MODE]
+                        },
+                    },
+                    {
+                        "service": "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
+                        "entity_id": service_call["entity_id"],
+                        "data": {
+                            ATTR_TEMPERATURE: service_call["data"][ATTR_TEMPERATURE]
+                        },
+                    }
+                ])
+            else:
+                service_calls.append(service_call)
 
-            await self.async_queue_action(num, service_call, self._entry)
+        for num in range(len(service_calls)):
+            await self.async_queue_action(num, service_calls[num], self._entry)
 
         for item in self._queued_actions:
             if item is not None and not self.schedule["timeslots"][self._entry]["stop"]:
