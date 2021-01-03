@@ -9,7 +9,7 @@ from homeassistant.const import (
   SUN_EVENT_SUNSET
 )
 
-VERSION = "3.0.2"
+VERSION = "3.0.3"
 
 DOMAIN = "scheduler"
 ENTITY_ID_FORMAT = DOMAIN + ".{}"
