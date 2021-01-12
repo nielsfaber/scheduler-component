@@ -27,7 +27,8 @@ In order for the newly added integration to be loaded, HA needs to be restarted.
 In HA, go to Configuration > Integrations.
 In the bottom right corner, click on the big button with a '+'.
 
-If the component is properly installed, you should be able to find the 'Scheduler integration' in the list.
+If the component is properly installed, you should be able to find the 'Scheduler integration' in the list. You might need to clear you browser cache for the integration to show up.
+
 
 Select it, and the scheduler integration is ready for use.
 
