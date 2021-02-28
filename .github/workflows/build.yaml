@@ -18,15 +18,7 @@ jobs:
       - name: Patch manifest and zip
         run: |
           sed -i 's/v0.0.0/${{ steps.version.outputs.version }}/g' custom_components/scheduler/manifest.json
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: scheduler
-          path: custom_components/scheduler/
-
-      - uses: actions/download-artifact@v2
-        with:
-          name: scheduler
+          zip scheduler.zip -r custom_components/scheduler/
 
       - uses: gacts/upload-to-release@master
         env:
