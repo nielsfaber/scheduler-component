@@ -1,0 +1,22 @@
+name: Build
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Get version
+        id: version
+        uses: home-assistant/actions/helpers/version@master
+
+      - name: Run a multi-line script
+        run: |
+          echo ${{ steps.version.outputs.version }}
+          cat custom_components/scheduler/manifest.json
