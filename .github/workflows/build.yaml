@@ -20,3 +20,5 @@ jobs:
         run: |
           echo ${{ steps.version.outputs.version }}
           cat custom_components/scheduler/manifest.json
+          sed -i 's/0.0.0/${{ steps.version.outputs.version }}/g' custom_components/scheduler/manifest.json
+          cat custom_components/scheduler/manifest.json
