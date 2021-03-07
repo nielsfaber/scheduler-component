@@ -56,7 +56,7 @@ In HA go to Configuration -> Integrations. Find the card for scheduler integrati
 In the HACS panel go to integrations and look for Scheduler component. Click the button with the 3 dots and click 'Uninstall'.
 - When installed manually:
 In the custom_components directory, remove the 'scheduler' folder.
-3. Restart HA to make all traces of the component dissapear.
+3. Restart HA to make all traces of the component disappear.
 
 ## Backup
 The configuration of your schedules is stored in the `.storage` folder in the HA configuration directory, in a file called `scheduler.storage`.
