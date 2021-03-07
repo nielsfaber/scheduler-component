@@ -3,6 +3,7 @@
   "name": "Scheduler integration",
   "documentation": "https://github.com/nielsfaber/scheduler-component",
   "issue_tracker": "https://github.com/nielsfaber/scheduler-component/issues",
+  "version": "v0.0.0",
   "dependencies": [
     "http"
   ],
