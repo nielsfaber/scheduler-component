@@ -19,7 +19,7 @@ jobs:
         run: |
           sed -i 's/v0.0.0/${{ steps.version.outputs.version }}/' custom_components/scheduler/manifest.json
           cd custom_components/scheduler/
-          zip scheduler.zip -r ./
+          zip ../../scheduler.zip -r ./
 
       - uses: gacts/upload-to-release@master
         env:
