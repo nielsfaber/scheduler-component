@@ -7,13 +7,18 @@ import attr
 from homeassistant.core import callback
 from homeassistant.helpers.typing import HomeAssistantType
 from homeassistant.loader import bind_hass
+from homeassistant.const import (
+    ATTR_NAME,
+    CONF_CONDITIONS,
+)
 
-from .const import DOMAIN
+
+from . import const
 
 _LOGGER = logging.getLogger(__name__)
 
-DATA_REGISTRY = f"{DOMAIN}_storage"
-STORAGE_KEY = f"{DOMAIN}.storage"
+DATA_REGISTRY = f"{const.DOMAIN}_storage"
+STORAGE_KEY = f"{const.DOMAIN}.storage"
 STORAGE_VERSION = 1
 SAVE_DELAY = 10
 
@@ -61,22 +66,22 @@ class ScheduleEntry:
 
 
 def parse_schedule_data(data: dict):
-    if "timeslots" in data:
+    if const.ATTR_TIMESLOTS in data:
         timeslots = []
-        for item in data["timeslots"]:
+        for item in data[const.ATTR_TIMESLOTS]:
             timeslot = TimeslotEntry(**item)
-            if "conditions" in item and item["conditions"]:
+            if CONF_CONDITIONS in item and item[CONF_CONDITIONS]:
                 conditions = []
-                for condition in item["conditions"]:
+                for condition in item[CONF_CONDITIONS]:
                     conditions.append(ConditionEntry(**condition))
-                timeslot = attr.evolve(timeslot, **{"conditions": conditions})
-            if "actions" in item and item["actions"]:
+                timeslot = attr.evolve(timeslot, **{CONF_CONDITIONS: conditions})
+            if const.ATTR_ACTIONS in item and item[const.ATTR_ACTIONS]:
                 actions = []
-                for action in item["actions"]:
+                for action in item[const.ATTR_ACTIONS]:
                     actions.append(ActionEntry(**action))
-                timeslot = attr.evolve(timeslot, **{"actions": actions})
+                timeslot = attr.evolve(timeslot, **{const.ATTR_ACTIONS: actions})
             timeslots.append(timeslot)
-        data["timeslots"] = timeslots
+        data[const.ATTR_TIMESLOTS] = timeslots
     return data
 
 
@@ -97,13 +102,13 @@ class ScheduleStorage:
         if data is not None:
             for entry in data["schedules"]:
                 entry = parse_schedule_data(entry)
-                schedules[entry["schedule_id"]] = ScheduleEntry(
-                    schedule_id=entry["schedule_id"],
-                    weekdays=entry["weekdays"],
-                    timeslots=entry["timeslots"],
-                    repeat_type=entry["repeat_type"],
-                    name=entry["name"],
-                    enabled=entry["enabled"],
+                schedules[entry[const.ATTR_SCHEDULE_ID]] = ScheduleEntry(
+                    schedule_id=entry[const.ATTR_SCHEDULE_ID],
+                    weekdays=entry[const.ATTR_WEEKDAYS],
+                    timeslots=entry[const.ATTR_TIMESLOTS],
+                    repeat_type=entry[const.ATTR_REPEAT_TYPE],
+                    name=entry[ATTR_NAME],
+                    enabled=entry[const.ATTR_ENABLED],
                 )
         self.schedules = schedules
 
@@ -125,28 +130,28 @@ class ScheduleStorage:
 
         for entry in self.schedules.values():
             item = {
-                "schedule_id": entry.schedule_id,
-                "timeslots": [],
-                "weekdays": entry.weekdays,
-                "repeat_type": entry.repeat_type,
-                "name": entry.name,
-                "enabled": entry.enabled,
+                const.ATTR_SCHEDULE_ID: entry.schedule_id,
+                const.ATTR_TIMESLOTS: [],
+                const.ATTR_WEEKDAYS: entry.weekdays,
+                const.ATTR_REPEAT_TYPE: entry.repeat_type,
+                ATTR_NAME: entry.name,
+                const.ATTR_ENABLED: entry.enabled,
             }
             for slot in entry.timeslots:
                 timeslot = {
-                    "start": slot.start,
-                    "stop": slot.stop,
-                    "conditions": [],
-                    "condition_type": slot.condition_type,
-                    "actions": [],
+                    const.ATTR_START: slot.start,
+                    const.ATTR_STOP: slot.stop,
+                    CONF_CONDITIONS: [],
+                    const.ATTR_CONDITION_TYPE: slot.condition_type,
+                    const.ATTR_ACTIONS: [],
                 }
                 if slot.conditions:
                     for condition in slot.conditions:
-                        timeslot["conditions"].append(attr.asdict(condition))
+                        timeslot[CONF_CONDITIONS].append(attr.asdict(condition))
                 if slot.actions:
                     for action in slot.actions:
-                        timeslot["actions"].append(attr.asdict(action))
-                item["timeslots"].append(timeslot)
+                        timeslot[const.ATTR_ACTIONS].append(attr.asdict(action))
+                item[const.ATTR_TIMESLOTS].append(timeslot)
             store_data["schedules"].append(item)
 
         return store_data
@@ -174,10 +179,10 @@ class ScheduleStorage:
     @callback
     def async_create_schedule(self, data: dict) -> ScheduleEntry:
         """Create a new ScheduleEntry."""
-        if "schedule_id" in data:
+        if const.ATTR_SCHEDULE_ID in data:
             # migrate existing schedule to store
-            schedule_id = data["schedule_id"]
-            del data["schedule_id"]
+            schedule_id = data[const.ATTR_SCHEDULE_ID]
+            del data[const.ATTR_SCHEDULE_ID]
             if schedule_id in self.schedules:
                 return
             _LOGGER.info("Migrating schedule {}".format(schedule_id))
