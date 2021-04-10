@@ -156,6 +156,6 @@ SCHEDULE_SCHEMA = vol.Schema(
                 REPEAT_TYPE_PAUSE,
             ]
         ),
-        vol.Optional(ATTR_NAME): cv.string,
+        vol.Optional(ATTR_NAME): vol.Any(cv.string, None),
     }
 )
