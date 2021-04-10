@@ -165,7 +165,7 @@ class TimerHandler:
                 if abs(delta) >= 60 and abs(delta) < 50000:
                     # only reschedule if the difference is at least a minute
                     # only reschedule if this doesnt cause the timer to shift to another day (+/- 24 hrs delta)
-                    self.async_start_timer()
+                    await self.async_start_timer()
 
             self._sun_tracker = async_track_state_change(
                 self.hass,
@@ -296,6 +296,7 @@ class TimerHandler:
             if not ts:
                 return None
             ts = dt_util.as_local(ts)
+            ts = ts.replace(second=0)
             time_sun = datetime.timedelta(hours=ts.hour, minutes=ts.minute, seconds=ts.second)
             offset = dt_util.parse_time(res.group(3))
             offset = datetime.timedelta(hours=offset.hour, minutes=offset.minute, seconds=offset.second)
