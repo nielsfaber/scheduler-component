@@ -208,6 +208,7 @@ class ScheduleEntity(ToggleEntity):
         if id != self.schedule_id or self._state == STATE_OFF:
             return
 
+        self._current_slot = self._timer_handler.current_slot
         if self._current_slot is not None:
             _LOGGER.debug(
                 "Schedule {} is triggered, proceed with actions".format(self.schedule_id)

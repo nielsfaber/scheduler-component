@@ -60,6 +60,7 @@ class TimerHandler:
         self._timeslots = []
         self._timer = None
         self._next_trigger = None
+        self._next_slot = None
         self._sun_tracker = None
         self._workday_tracker = None
         self._watched_times = []
@@ -108,6 +109,10 @@ class TimerHandler:
         # the next trigger time is next slot or end of current slot (whichever comes first)
         timestamp = find_minimum([timestamp_end, timestamp_next])
         self._timer_is_endpoint = timestamp != timestamp_next and timestamp == timestamp_end
+        if timestamp == timestamp_next and timestamp is not None:
+            self._next_slot = next_slot
+        else:
+            self._next_slot = None
 
         self.current_slot = current_slot
         self._next_trigger = timestamp
@@ -225,12 +230,15 @@ class TimerHandler:
         """the timer is finished"""
         if not self._timer_is_endpoint:
             # timer marks the start of a new timeslot
+            self.current_slot = self._next_slot
+            _LOGGER.debug("Timer {} has reached slot {}".format(self.id, self.current_slot))
             async_dispatcher_send(self.hass, const.EVENT_TIMER_FINISHED, self.id)
             # don't automatically reset, wait for external reset after 1 minute
             # await self.async_start_timer()
             await self.async_stop_timer()
         else:
             # timer marks the end of a timeslot
+            _LOGGER.debug("Timer {} has reached end of timeslot, resetting..".format(self.id))
             await self.async_start_timer()
 
     def day_in_weekdays(self, ts: datetime.datetime) -> bool:
