@@ -2,11 +2,10 @@
 import secrets
 
 from homeassistant import config_entries
+from . import const
 
-from . import DOMAIN
 
-
-class SchedulerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class SchedulerConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
     """Config flow for Scheduler."""
 
     VERSION = 2
@@ -19,4 +18,4 @@ class SchedulerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(id)
         self._abort_if_unique_id_configured(updates=user_input)
 
-        return self.async_create_entry(title="Scheduler integration", data={})
+        return self.async_create_entry(title="Scheduler", data={})
