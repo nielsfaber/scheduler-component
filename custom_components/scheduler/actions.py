@@ -45,9 +45,7 @@ def parse_service_call(data: dict):
         CONF_SERVICE_DATA: data[ATTR_SERVICE_DATA],
     }
     if ATTR_ENTITY_ID in data:
-        domain = data[ATTR_ENTITY_ID].split(".").pop(0)
-        if domain and domain not in ["notify"]:
-            service_call[ATTR_ENTITY_ID] = data[ATTR_ENTITY_ID]
+        service_call[ATTR_ENTITY_ID] = data[ATTR_ENTITY_ID]
 
     if (
         service_call[CONF_SERVICE] == "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE)
