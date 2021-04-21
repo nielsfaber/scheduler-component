@@ -96,6 +96,7 @@ class TimerHandler:
         self._next_trigger = None
 
     async def async_start_timer(self):
+        _LOGGER.debug("Calculating timer for {}".format(self.id))
 
         [current_slot, timestamp_end] = self.current_timeslot()
         [next_slot, timestamp_next] = self.next_timeslot()
@@ -274,7 +275,7 @@ class TimerHandler:
             return True
         return day in self._weekdays
 
-    def calculate_timestamp(self, time_str, now: datetime.datetime = None) -> datetime.datetime:
+    def calculate_timestamp(self, time_str, now: datetime.datetime = None, iteration: int = 0) -> datetime.datetime:
         """calculate the next occurence of a time string"""
         if time_str is None:
             return None
@@ -327,11 +328,14 @@ class TimerHandler:
                 [ts.hour]
             )
 
-        if self.day_in_weekdays(ts) and (ts - now).total_seconds() > 0:
+        if self.day_in_weekdays(ts) and ((ts - now).total_seconds() > 0 or iteration > 0):
             return ts
         else:
             next_day = dt_util.find_next_time_expression_time(now + datetime.timedelta(seconds=1), [0], [0], [0])
-            return self.calculate_timestamp(time_str, next_day)
+            if iteration > 7:
+                _LOGGER.warning("failed to calculate next timeslot for schedule {}".format(self.id))
+                return None
+            return self.calculate_timestamp(time_str, next_day, iteration + 1)
 
     def next_timeslot(self):
         """calculate the closest timeslot from now"""
