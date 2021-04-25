@@ -184,7 +184,7 @@ class ScheduleEntity(ToggleEntity):
 
         if self._init:
             # initial startpoint for timer calculated, fire actions if currently overlapping with timeslot
-            if self._current_slot is not None:
+            if self._current_slot is not None and self._state != STATE_OFF:
                 _LOGGER.debug(
                     "Schedule {} is starting in a timeslot, proceed with actions".format(self.schedule_id)
                 )
