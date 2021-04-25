@@ -4,8 +4,7 @@ from collections import OrderedDict
 from typing import MutableMapping, cast
 
 import attr
-from homeassistant.core import callback
-from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.core import (callback, HomeAssistant)
 from homeassistant.loader import bind_hass
 from homeassistant.const import (
     ATTR_NAME,
@@ -88,7 +87,7 @@ def parse_schedule_data(data: dict):
 class ScheduleStorage:
     """Class to hold scheduler data."""
 
-    def __init__(self, hass: HomeAssistantType) -> None:
+    def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the storage."""
         self.hass = hass
         self.schedules: MutableMapping[str, ScheduleEntry] = {}
@@ -217,7 +216,7 @@ class ScheduleStorage:
 
 
 @bind_hass
-async def async_get_registry(hass: HomeAssistantType) -> ScheduleStorage:
+async def async_get_registry(hass: HomeAssistant) -> ScheduleStorage:
     """Return alarmo storage instance."""
     task = hass.data.get(DATA_REGISTRY)
 
