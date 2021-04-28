@@ -295,14 +295,13 @@ class ScheduleEntity(ToggleEntity):
             return
         for timeslot in self.schedule[const.ATTR_TIMESLOTS]:
             for action in timeslot[const.ATTR_ACTIONS]:
-                my_action = (
-                    action
-                    if action[ATTR_SERVICE_DATA]
-                    else {
-                        CONF_SERVICE: action[CONF_SERVICE],
-                        ATTR_ENTITY_ID: action[ATTR_ENTITY_ID],
-                    }
-                )
+                my_action = {
+                    CONF_SERVICE: action[CONF_SERVICE],
+                }
+                if action[ATTR_ENTITY_ID]:
+                    my_action[ATTR_ENTITY_ID] = action[ATTR_ENTITY_ID]
+                if action[ATTR_SERVICE_DATA]:
+                    my_action[ATTR_SERVICE_DATA] = action[ATTR_SERVICE_DATA]
                 if my_action not in actions:
                     actions.append(my_action)
 

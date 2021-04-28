@@ -44,7 +44,7 @@ def parse_service_call(data: dict):
         CONF_SERVICE: data[CONF_SERVICE],
         CONF_SERVICE_DATA: data[ATTR_SERVICE_DATA],
     }
-    if ATTR_ENTITY_ID in data:
+    if ATTR_ENTITY_ID in data and data[ATTR_ENTITY_ID]:
         service_call[ATTR_ENTITY_ID] = data[ATTR_ENTITY_ID]
 
     if (
@@ -166,7 +166,7 @@ class ActionHandler:
 
         entities = []
         for action in actions:
-            if ATTR_ENTITY_ID in action and action[ATTR_ENTITY_ID] not in entities:
+            if ATTR_ENTITY_ID in action and action[ATTR_ENTITY_ID] not in entities and action[ATTR_ENTITY_ID]:
                 entities.append(action[ATTR_ENTITY_ID])
 
         for condition in conditions:
@@ -187,9 +187,10 @@ class ActionHandler:
             _LOGGER.debug("[{}]: state of {} has changed, re-evaluating actions".format(self.id, entity))
             await self.async_process_queue()
 
-        self._entity_tracker = async_track_state_change(
-            self.hass, entities, async_entity_changed
-        )
+        if entities:
+            self._entity_tracker = async_track_state_change(
+                self.hass, entities, async_entity_changed
+            )
         await self.async_process_queue()
 
     async def async_empty_queue(self):
@@ -213,7 +214,7 @@ class ActionHandler:
             condition_type = item[const.ATTR_CONDITION_TYPE]
             entities = []
 
-            if ATTR_ENTITY_ID in action:
+            if ATTR_ENTITY_ID in action and action[ATTR_ENTITY_ID]:
                 entities.append(action[ATTR_ENTITY_ID])
             for condition in conditions:
                 if ATTR_ENTITY_ID in condition and condition[ATTR_ENTITY_ID] not in entities:
