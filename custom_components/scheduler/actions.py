@@ -98,6 +98,15 @@ def entity_is_available(hass: HomeAssistant, entity: str):
             return True
 
 
+def service_is_available(hass: HomeAssistant, service: str):
+    """evaluate whether a HA service is ready for targeting"""
+    if service == ACTION_WAIT:
+        return True
+    domain = service.split(".").pop(0)
+    domain_service = service.split(".").pop(1)
+    return hass.services.has_service(domain, domain_service)
+
+
 def validate_condition(hass: HomeAssistant, condition: dict):
     """Validate a condition against the current state"""
     if not entity_is_available(hass, condition[ATTR_ENTITY_ID]):
@@ -223,7 +232,12 @@ class ActionHandler:
             unavailable_entities = [
                 x for x in entities if not entity_is_available(self.hass, x)
             ]
-            if len(unavailable_entities) > 0:
+            if not service_is_available(self.hass, action[CONF_SERVICE]):
+                i += 1
+                _LOGGER.debug("[{}]: service {} is unavailable, action is postponed".format(
+                    self.id, action[CONF_SERVICE]
+                ))
+            elif len(unavailable_entities) > 0:
                 i += 1
                 _LOGGER.debug("[{}]: {} is unavailable, action {} is postponed".format(
                     self.id, ", ".join(unavailable_entities),
