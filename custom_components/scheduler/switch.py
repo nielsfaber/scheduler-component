@@ -173,8 +173,6 @@ class ScheduleEntity(ToggleEntity):
         if id != self.schedule_id:
             return
 
-        _LOGGER.debug("async_timer_updated {}".format(id))
-
         self._next_entries = self._timer_handler.slot_queue
         self._timestamps = list(
             map(lambda x: datetime.datetime.isoformat(x), self._timer_handler.timestamps)
