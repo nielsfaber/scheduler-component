@@ -264,8 +264,8 @@ class TimerHandler:
             weekend_list = [e for e in WEEKDAYS if e not in workday_list]
         else:
             # assume workdays are mon-fri
-            workday_list = WEEKDAYS[0:4]
-            weekend_list = WEEKDAYS[5:6]
+            workday_list = WEEKDAYS[0:5]
+            weekend_list = WEEKDAYS[5:7]
 
         if const.DAY_TYPE_DAILY in self._weekdays or not len(self._weekdays):
             return True
