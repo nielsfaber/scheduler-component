@@ -166,7 +166,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             async_call_later(hass, 10, async_timer_finished)
 
         if hass.state == CoreState.running:
-            handle_startup()
+            handle_startup(None)
         else:
             hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, handle_startup)
 
