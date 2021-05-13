@@ -396,6 +396,9 @@ class ScheduleEntity(ToggleEntity):
         await self._action_handler.async_empty_queue()
         await self._timer_handler.async_unload()
 
+        while len(self._listeners):
+            self._listeners.pop()()
+
         await super().async_will_remove_from_hass()
 
     async def async_service_remove(self):
