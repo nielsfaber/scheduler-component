@@ -37,7 +37,7 @@ def has_sun(time_str: str):
 
 
 def is_same_day(dateA: datetime.datetime, dateB: datetime.datetime):
-    return dateA.date() == dateB.date
+    return dateA.date() == dateB.date()
 
 
 def find_minimum(date_arr: list):
