@@ -200,16 +200,19 @@ class TimerHandler:
             @callback
             async def async_workday_updated(entity, old_state, new_state):
                 """the workday sensor was updated"""
+                [current_slot, timestamp_end] = self.current_timeslot()
+                [next_slot, timestamp_next] = self.next_timeslot()
+                ts_next = find_minimum([timestamp_end, timestamp_next])
+
                 # workday entity changed
-                ts = find_minimum(self.calculate_timestamp(x) for x in self._watched_times)
-                if not ts or not self._next_trigger:
+                if not ts_next or not self._next_trigger:
                     # timer was not yet set
                     await self.async_start_timer()
                 else:
                     # we are re-scheduling an existing timer
-                    delta = (ts - self._next_trigger).total_seconds()
-                    if abs(delta) >= 3600:
-                        # only reschedule if the difference is at least an hour (usually it will be approx. 24 hrs)
+                    delta = (ts_next - self._next_trigger).total_seconds()
+                    if abs(delta) >= 60:
+                        # only reschedule if the difference is at least a minute
                         await self.async_start_timer()
 
             self._workday_tracker = async_track_state_change(
