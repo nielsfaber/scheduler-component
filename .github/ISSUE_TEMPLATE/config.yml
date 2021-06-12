@@ -1,4 +1,8 @@
-contact_links: 
-  - about: "Most issues should be posted over at scheduler-card."
-    name: Bug / feature request / usage question
-    url: "https://github.com/nielsfaber/scheduler-card/issues/new"
+blank_issues_enabled: false
+contact_links:
+  - name: Questions/discussion
+    url: https://community.home-assistant.io/t/scheduler-card-custom-component/217458/1381
+    about: Ask questions, discuss configuration, share your setup
+  - name: Bugs/features for scheduler-card
+    url: https://github.com/nielsfaber/scheduler-card/issues
+    about: Report problems or propose new features for the scheduler-card
