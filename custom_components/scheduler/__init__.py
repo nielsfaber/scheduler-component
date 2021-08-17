@@ -222,7 +222,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         entity_registry.async_remove(entity.entity_id)
         self.store.async_delete_schedule(schedule_id)
         self.hass.data[const.DOMAIN]["schedules"].pop(schedule_id, None)
-        self.hass.bus.async_fire(const.EVENT)
+        async_dispatcher_send(self.hass, const.EVENT_ITEM_REMOVED, schedule_id)
 
     async def _async_update_data(self):
         """Update data via library."""

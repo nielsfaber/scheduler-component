@@ -63,6 +63,7 @@ EVENT_TIMER_FINISHED = "scheduler_timer_finished"
 EVENT_TIMER_UPDATED = "scheduler_timer_updated"
 EVENT_ITEM_UPDATED = "scheduler_item_updated"
 EVENT_ITEM_CREATED = "scheduler_item_created"
+EVENT_ITEM_REMOVED = "scheduler_item_removed"
 EVENT_STARTED = "scheduler_started"
 
 STATE_INIT = "init"
