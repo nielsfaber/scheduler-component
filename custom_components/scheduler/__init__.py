@@ -136,11 +136,14 @@ async def async_unload_entry(hass, entry):
             *[hass.config_entries.async_forward_entry_unload(entry, PLATFORM)]
         )
     )
-    if unload_ok:
-        coordinator = hass.data[const.DOMAIN]["coordinator"]
-        await coordinator.async_delete()
-        del hass.data[const.DOMAIN]
     return unload_ok
+
+
+async def async_remove_entry(hass, entry):
+    """Remove Scheduler data."""
+    coordinator = hass.data[const.DOMAIN]["coordinator"]
+    await coordinator.async_delete_config()
+    del hass.data[const.DOMAIN]
 
 
 class SchedulerCoordinator(DataUpdateCoordinator):
@@ -228,5 +231,5 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         """Update data via library."""
         return True
 
-    async def async_delete(self):
+    async def async_delete_config(self):
         await self.store.async_delete()
