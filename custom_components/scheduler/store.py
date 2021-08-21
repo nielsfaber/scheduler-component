@@ -64,6 +64,14 @@ class ScheduleEntry:
     enabled = attr.ib(type=bool, default=True)
 
 
+@attr.s(slots=True, frozen=True)
+class TagEntry:
+    """Tag storage Entry."""
+
+    name = attr.ib(type=str, default=None)
+    schedules = attr.ib(type=[str], default=[])
+
+
 def parse_schedule_data(data: dict):
     if const.ATTR_TIMESLOTS in data:
         timeslots = []
@@ -91,25 +99,38 @@ class ScheduleStorage:
         """Initialize the storage."""
         self.hass = hass
         self.schedules: MutableMapping[str, ScheduleEntry] = {}
+        self.tags: MutableMapping[str, TagEntry] = {}
         self._store = hass.helpers.storage.Store(STORAGE_VERSION, STORAGE_KEY)
 
     async def async_load(self) -> None:
         """Load the registry of schedule entries."""
         data = await self._store.async_load()
         schedules: "OrderedDict[str, ScheduleEntry]" = OrderedDict()
+        tags: "OrderedDict[str, TagEntry]" = OrderedDict()
 
         if data is not None:
-            for entry in data["schedules"]:
-                entry = parse_schedule_data(entry)
-                schedules[entry[const.ATTR_SCHEDULE_ID]] = ScheduleEntry(
-                    schedule_id=entry[const.ATTR_SCHEDULE_ID],
-                    weekdays=entry[const.ATTR_WEEKDAYS],
-                    timeslots=entry[const.ATTR_TIMESLOTS],
-                    repeat_type=entry[const.ATTR_REPEAT_TYPE],
-                    name=entry[ATTR_NAME],
-                    enabled=entry[const.ATTR_ENABLED],
-                )
+
+            if "schedules" in data:
+                for entry in data["schedules"]:
+                    entry = parse_schedule_data(entry)
+                    schedules[entry[const.ATTR_SCHEDULE_ID]] = ScheduleEntry(
+                        schedule_id=entry[const.ATTR_SCHEDULE_ID],
+                        weekdays=entry[const.ATTR_WEEKDAYS],
+                        timeslots=entry[const.ATTR_TIMESLOTS],
+                        repeat_type=entry[const.ATTR_REPEAT_TYPE],
+                        name=entry[ATTR_NAME],
+                        enabled=entry[const.ATTR_ENABLED],
+                    )
+
+            if "tags" in data:
+                for entry in data["tags"]:
+                    tags[entry[ATTR_NAME]] = TagEntry(
+                        name=entry[ATTR_NAME],
+                        schedules=entry[const.ATTR_SCHEDULES],
+                    )
+
         self.schedules = schedules
+        self.tags = tags
 
     @callback
     def async_schedule_save(self) -> None:
@@ -126,6 +147,7 @@ class ScheduleStorage:
         store_data = {}
 
         store_data["schedules"] = []
+        store_data["tags"] = []
 
         for entry in self.schedules.values():
             item = {
@@ -153,12 +175,17 @@ class ScheduleStorage:
                 item[const.ATTR_TIMESLOTS].append(timeslot)
             store_data["schedules"].append(item)
 
+        store_data["tags"] = [
+            attr.asdict(entry) for entry in self.tags.values()
+        ]
+
         return store_data
 
     async def async_delete(self):
         """Delete config."""
         _LOGGER.warning("Removing scheduler configuration data!")
         self.schedules = {}
+        self.tags = {}
         await self._store.async_remove()
 
     @callback
@@ -197,7 +224,7 @@ class ScheduleStorage:
         return new_schedule
 
     @callback
-    def async_delete_schedule(self, schedule_id: int) -> None:
+    def async_delete_schedule(self, schedule_id: str) -> None:
         """Delete ScheduleEntry."""
         if schedule_id in self.schedules:
             del self.schedules[schedule_id]
@@ -206,11 +233,55 @@ class ScheduleStorage:
         return False
 
     @callback
-    def async_update_schedule(self, schedule_id: int, changes: dict) -> ScheduleEntry:
+    def async_update_schedule(self, schedule_id: str, changes: dict) -> ScheduleEntry:
         """Update existing ScheduleEntry."""
         old = self.schedules[schedule_id]
         changes = parse_schedule_data(changes)
         new = self.schedules[schedule_id] = attr.evolve(old, **changes)
+        self.async_schedule_save()
+        return new
+
+    @callback
+    def async_get_tag(self, name: str) -> dict:
+        """Get an existing TagEntry by id."""
+        res = self.tags.get(name)
+        return attr.asdict(res) if res else None
+
+    @callback
+    def async_get_tags(self) -> dict:
+        """Get an existing TagEntry by id."""
+        res = {}
+        for (key, val) in self.tags.items():
+            res[key] = attr.asdict(val)
+        return res
+
+    @callback
+    def async_create_tag(self, data: dict) -> TagEntry:
+        """Create a new TagEntry."""
+        name = data[ATTR_NAME] if ATTR_NAME in data else None
+        if not name or name in data:
+            return None
+
+        new_tag = TagEntry(**data)
+        self.tags[name] = new_tag
+        self.async_schedule_save()
+        return new_tag
+
+    @callback
+    def async_delete_tag(self, name: str) -> None:
+        """Delete TagEntry."""
+        if name in self.tags:
+            del self.tags[name]
+            self.async_schedule_save()
+            return True
+        return False
+
+    @callback
+    def async_update_tag(self, name: str, changes: dict) -> TagEntry:
+        """Update existing TagEntry."""
+        old = self.tags[name]
+        changes = parse_schedule_data(changes)
+        new = self.tags[name] = attr.evolve(old, **changes)
         self.async_schedule_save()
         return new
 

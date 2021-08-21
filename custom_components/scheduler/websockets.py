@@ -94,6 +94,14 @@ def websocket_get_schedule_item(hass, connection, msg):
 
 
 @callback
+def websocket_get_tags(hass, connection, msg):
+    """Publish tag list data."""
+    coordinator = hass.data[const.DOMAIN]["coordinator"]
+    tags = coordinator.async_get_tags()
+    connection.send_result(msg["id"], tags)
+
+
+@callback
 @decorators.websocket_command({
     vol.Required("type"): const.EVENT,
 })
@@ -216,6 +224,15 @@ async def async_register_websockets(hass):
             vol.Required("type"): "{}/item".format(const.DOMAIN),
             vol.Required(const.ATTR_SCHEDULE_ID): cv.string,
         }),
+    )
+
+    # pass list of tags to frontend
+    hass.components.websocket_api.async_register_command(
+        "{}/tags".format(const.DOMAIN),
+        websocket_get_tags,
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend({
+            vol.Required("type"): "{}/tags".format(const.DOMAIN),
+        })
     )
 
     # instantiate listener for sending event to frontend on backend change

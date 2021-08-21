@@ -58,6 +58,8 @@ ATTR_ENABLED = "enabled"
 ATTR_SCHEDULE_ID = "schedule_id"
 ATTR_ACTIONS = "actions"
 ATTR_VALUE = "value"
+ATTR_TAGS = "tags"
+ATTR_SCHEDULES = "schedules"
 
 EVENT_TIMER_FINISHED = "scheduler_timer_finished"
 EVENT_TIMER_UPDATED = "scheduler_timer_updated"
@@ -158,5 +160,10 @@ SCHEDULE_SCHEMA = vol.Schema(
             ]
         ),
         vol.Optional(ATTR_NAME): vol.Any(cv.string, None),
+        vol.Optional(ATTR_TAGS): vol.All(
+            cv.ensure_list,
+            vol.Unique(),
+            [cv.string]
+        ),
     }
 )

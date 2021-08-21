@@ -139,6 +139,7 @@ class ScheduleEntity(ToggleEntity):
         self._next_entries = []
         self._current_slot = None
         self._init = True
+        self._tags = []
 
         self._listeners = [
             async_dispatcher_connect(self.hass, const.EVENT_ITEM_UPDATED, self.async_item_updated),
@@ -153,6 +154,7 @@ class ScheduleEntity(ToggleEntity):
             return
         store = await async_get_registry(self.hass)
         self.schedule = store.async_get_schedule(self.schedule_id)
+        self._tags = self.coordinator.async_get_tags_for_schedule(self.schedule_id)
 
         if self.schedule[const.ATTR_ENABLED] and self._state == STATE_OFF:
             self._state = STATE_ON
@@ -321,6 +323,10 @@ class ScheduleEntity(ToggleEntity):
         return times
 
     @property
+    def tags(self):
+        return self._tags
+
+    @property
     def state_attributes(self):
         """Return the data of the entity."""
         output = {
@@ -330,6 +336,7 @@ class ScheduleEntity(ToggleEntity):
             "current_slot": self._current_slot,
             "next_slot": self._next_entries[0] if len(self._next_entries) else None,
             "next_trigger": self._timestamps[self._next_entries[0]] if len(self._next_entries) else None,
+            "tags": self.tags,
         }
 
         return output
@@ -361,6 +368,7 @@ class ScheduleEntity(ToggleEntity):
                 "timestamps": self._timestamps,
                 "name": self.schedule[ATTR_NAME] if self.schedule else "",
                 "entity_id": self.entity_id,
+                "tags": self.tags,
             }
         )
         return data
@@ -369,6 +377,8 @@ class ScheduleEntity(ToggleEntity):
         """Connect to dispatcher listening for entity data notifications."""
         store = await async_get_registry(self.hass)
         self.schedule = store.async_get_schedule(self.schedule_id)
+        self._tags = self.coordinator.async_get_tags_for_schedule(self.schedule_id)
+
         if not self.schedule[const.ATTR_ENABLED]:
             self._state = STATE_OFF
         self._timer_handler = TimerHandler(self.hass, self.schedule_id)
