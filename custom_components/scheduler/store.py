@@ -10,15 +10,14 @@ from homeassistant.const import (
     ATTR_NAME,
     CONF_CONDITIONS,
 )
-
-
+from homeassistant.helpers.storage import Store
 from . import const
 
 _LOGGER = logging.getLogger(__name__)
 
 DATA_REGISTRY = f"{const.DOMAIN}_storage"
 STORAGE_KEY = f"{const.DOMAIN}.storage"
-STORAGE_VERSION = 1
+STORAGE_VERSION = 2
 SAVE_DELAY = 10
 
 
@@ -58,6 +57,8 @@ class ScheduleEntry:
 
     schedule_id = attr.ib(type=str, default=None)
     weekdays = attr.ib(type=list, default=[])
+    start_date = attr.ib(type=str, default=None)
+    end_date = attr.ib(type=str, default=None)
     timeslots = attr.ib(type=[TimeslotEntry], default=[])
     repeat_type = attr.ib(type=str, default=None)
     name = attr.ib(type=str, default=None)
@@ -92,6 +93,24 @@ def parse_schedule_data(data: dict):
     return data
 
 
+class MigratableStore(Store):
+    async def _async_migrate_func(self, old_version, data: dict):
+        _LOGGER.debug("_async_migrate_func")
+
+        if old_version < 2:
+            data["schedules"] = [
+                {
+                    **entry,
+                    const.ATTR_START_DATE: entry[const.ATTR_START_DATE]
+                    if const.ATTR_START_DATE in entry else None,
+                    const.ATTR_END_DATE: entry[const.ATTR_END_DATE]
+                    if const.ATTR_END_DATE in entry else None,
+                }
+                for entry in data["schedules"]
+            ] if "schedules" in data else []
+        return data
+
+
 class ScheduleStorage:
     """Class to hold scheduler data."""
 
@@ -100,7 +119,7 @@ class ScheduleStorage:
         self.hass = hass
         self.schedules: MutableMapping[str, ScheduleEntry] = {}
         self.tags: MutableMapping[str, TagEntry] = {}
-        self._store = hass.helpers.storage.Store(STORAGE_VERSION, STORAGE_KEY)
+        self._store = MigratableStore(hass, STORAGE_VERSION, STORAGE_KEY)
 
     async def async_load(self) -> None:
         """Load the registry of schedule entries."""
@@ -116,6 +135,8 @@ class ScheduleStorage:
                     schedules[entry[const.ATTR_SCHEDULE_ID]] = ScheduleEntry(
                         schedule_id=entry[const.ATTR_SCHEDULE_ID],
                         weekdays=entry[const.ATTR_WEEKDAYS],
+                        start_date=entry[const.ATTR_START_DATE],
+                        end_date=entry[const.ATTR_END_DATE],
                         timeslots=entry[const.ATTR_TIMESLOTS],
                         repeat_type=entry[const.ATTR_REPEAT_TYPE],
                         name=entry[ATTR_NAME],
@@ -154,6 +175,8 @@ class ScheduleStorage:
                 const.ATTR_SCHEDULE_ID: entry.schedule_id,
                 const.ATTR_TIMESLOTS: [],
                 const.ATTR_WEEKDAYS: entry.weekdays,
+                const.ATTR_START_DATE: entry.start_date,
+                const.ATTR_END_DATE: entry.end_date,
                 const.ATTR_REPEAT_TYPE: entry.repeat_type,
                 ATTR_NAME: entry.name,
                 const.ATTR_ENABLED: entry.enabled,

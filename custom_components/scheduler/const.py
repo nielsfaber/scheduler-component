@@ -48,7 +48,8 @@ SERVICE_REMOVE = "remove"
 SERVICE_EDIT = "edit"
 SERVICE_ADD = "add"
 
-OffsetTimePattern = re.compile("^([a-z]+)([-|\+]{1})([0-9:]+)$")
+OffsetTimePattern = re.compile(r"^([a-z]+)([-|\+]{1})([0-9:]+)$")
+DatePattern = re.compile(r"^[0-9]+\-[0-9]+\-[0-9]+$")
 
 ATTR_START = "start"
 ATTR_STOP = "stop"
@@ -60,6 +61,8 @@ ATTR_ACTIONS = "actions"
 ATTR_VALUE = "value"
 ATTR_TAGS = "tags"
 ATTR_SCHEDULES = "schedules"
+ATTR_START_DATE = "start_date"
+ATTR_END_DATE = "end_date"
 
 EVENT_TIMER_FINISHED = "scheduler_timer_finished"
 EVENT_TIMER_UPDATED = "scheduler_timer_updated"
@@ -88,6 +91,15 @@ def validate_time(time):
             raise vol.Invalid("Invalid time entered: {}".format(time))
         else:
             return time
+
+
+def validate_date(value: str) -> str:
+    """Wrap value in list if it is not one."""
+    date = dt_util.parse_date(value)
+    if date is None:
+        raise vol.Invalid("Invalid date entered: {}".format(value))
+    else:
+        return date.strftime("%Y-%m-%d")
 
 
 CONDITION_SCHEMA = vol.Schema(
@@ -135,7 +147,7 @@ TIMESLOT_SCHEMA = vol.Schema(
 
 SCHEDULE_SCHEMA = vol.Schema(
     {
-        vol.Required(ATTR_WEEKDAYS): vol.All(
+        vol.Optional(ATTR_WEEKDAYS, default=[DAY_TYPE_DAILY]): vol.All(
             cv.ensure_list,
             vol.Unique(),
             vol.Length(min=1),
@@ -149,6 +161,8 @@ SCHEDULE_SCHEMA = vol.Schema(
                 )
             ],
         ),
+        vol.Optional(ATTR_START_DATE): validate_date,
+        vol.Optional(ATTR_END_DATE): validate_date,
         vol.Required(ATTR_TIMESLOTS): vol.All(
             cv.ensure_list, vol.Length(min=1), [TIMESLOT_SCHEMA]
         ),

@@ -211,13 +211,16 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         elif ATTR_NAME in data:
             del data[ATTR_NAME]
 
+        tags_updated = False
         tags = None
         if const.ATTR_TAGS in data:
+            tags_updated = True
             tags = data[const.ATTR_TAGS]
             del data[const.ATTR_TAGS]
 
         entry = self.store.async_update_schedule(schedule_id, data)
-        self.async_assign_tags_to_schedule(schedule_id, tags)
+        if tags_updated:
+            self.async_assign_tags_to_schedule(schedule_id, tags)
         entity = self.hass.data[const.DOMAIN]["schedules"][schedule_id]
         if ATTR_NAME in data:
             # if the name has been changed, the entity ID must change hence the entity should be destroyed

@@ -42,7 +42,21 @@ add:
       name: Weekdays
       description: Days of the week for which the schedule should be repeated
       example: '["daily"]'
-      required: true
+      required: false
+      selector:
+        object:
+    start_date:
+      name: Start date
+      description: Date from which schedule should be executed
+      example: '["2021-01-01"]'
+      required: false
+      selector:
+        object:
+    end_date:
+      name: End date
+      description: Date until which schedule should be executed
+      example: '["2021-12-31"]'
+      required: false
       selector:
         object:
     timeslots:
@@ -88,7 +102,21 @@ edit:
       name: Weekdays
       description: Days of the week for which the schedule should be repeated
       example: '["daily"]'
-      required: true
+      required: false
+      selector:
+        object:
+    start_date:
+      name: Start date
+      description: Date from which schedule should be executed
+      example: '["2021-01-01"]'
+      required: false
+      selector:
+        object:
+    end_date:
+      name: End date
+      description: Date until which schedule should be executed
+      example: '["2021-12-31"]'
+      required: false
       selector:
         object:
     timeslots:

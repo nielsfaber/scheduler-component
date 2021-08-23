@@ -40,6 +40,12 @@ def is_same_day(dateA: datetime.datetime, dateB: datetime.datetime):
     return dateA.date() == dateB.date()
 
 
+def days_until_date(date_string: str, ts: datetime.datetime):
+    date = dt_util.parse_date(date_string)
+    diff = date - ts.date()
+    return diff.days
+
+
 def find_minimum(date_arr: list):
     minimum = None
     for item in date_arr:
@@ -57,6 +63,8 @@ class TimerHandler:
         self.hass = hass
         self.id = id
         self._weekdays = []
+        self._start_date = None
+        self._end_date = None
         self._timeslots = []
         self._timer = None
         self._next_trigger = None
@@ -83,6 +91,8 @@ class TimerHandler:
         data = store.async_get_schedule(self.id)
 
         self._weekdays = data[const.ATTR_WEEKDAYS]
+        self._start_date = data[const.ATTR_START_DATE]
+        self._end_date = data[const.ATTR_END_DATE]
         self._timeslots = [
             dict((k, slot[k]) for k in [const.ATTR_START, const.ATTR_STOP] if k in slot)
             for slot in data[const.ATTR_TIMESLOTS]
@@ -331,14 +341,29 @@ class TimerHandler:
                 [ts.hour]
             )
 
+        time_delta = datetime.timedelta(seconds=1)
+
         if self.day_in_weekdays(ts) and ((ts - now).total_seconds() > 0 or iteration > 0):
-            return ts
-        else:
-            next_day = dt_util.find_next_time_expression_time(now + datetime.timedelta(seconds=1), [0], [0], [0])
-            if iteration > 7:
-                _LOGGER.warning("failed to calculate next timeslot for schedule {}".format(self.id))
+
+            if self._start_date and days_until_date(self._start_date, ts) > 0:
+                # start date is in the future, postpone schedule
+                time_delta = datetime.timedelta(days=days_until_date(self._start_date, ts))
+
+            elif self._end_date and days_until_date(self._end_date, ts) < 0:
+                # start date is in the past, schedule never triggers
+                _LOGGER.warning("Schedule {} has expired and will not trigger again".format(self.id))
                 return None
-            return self.calculate_timestamp(time_str, next_day, iteration + 1)
+
+            else:
+                # date restrictions are met
+                return ts
+
+        # calculate next timestamp
+        next_day = dt_util.find_next_time_expression_time(now + time_delta, [0], [0], [0])
+        if iteration > 7:
+            _LOGGER.warning("failed to calculate next timeslot for schedule {}".format(self.id))
+            return None
+        return self.calculate_timestamp(time_str, next_day, iteration + 1)
 
     def next_timeslot(self):
         """calculate the closest timeslot from now"""
