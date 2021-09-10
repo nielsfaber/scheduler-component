@@ -158,6 +158,7 @@ class ScheduleEntity(ToggleEntity):
         """update internal properties when schedule config was changed"""
         if id != self.schedule_id:
             return
+
         store = await async_get_registry(self.hass)
         self.schedule = store.async_get_schedule(self.schedule_id)
         self._tags = self.coordinator.async_get_tags_for_schedule(self.schedule_id)
@@ -207,6 +208,16 @@ class ScheduleEntity(ToggleEntity):
 
         self._current_slot = self._timer_handler.current_slot
 
+        if self._state not in [STATE_OFF, STATE_TRIGGERED]:
+            if len(self._next_entries) < 1:
+                self._state = STATE_UNAVAILABLE
+            else:
+                now = dt_util.as_local(dt_util.utcnow())
+                if (self._timer_handler._next_trigger - now).total_seconds() < 0:
+                    self._state = const.STATE_COMPLETED
+                else:
+                    self._state = STATE_ON if self.schedule[const.ATTR_ENABLED] else STATE_OFF
+
         if self._init:
             # initial startpoint for timer calculated, fire actions if currently overlapping with timeslot
             if self._current_slot is not None and self._state != STATE_OFF:
@@ -217,16 +228,6 @@ class ScheduleEntity(ToggleEntity):
                     self.schedule[const.ATTR_TIMESLOTS][self._current_slot]
                 )
             self._init = False
-
-        if self._state not in [STATE_OFF, STATE_TRIGGERED]:
-            if len(self._next_entries) < 1:
-                self._state = STATE_UNAVAILABLE
-            else:
-                now = dt_util.as_local(dt_util.utcnow())
-                if (self._timer_handler._next_trigger - now).total_seconds() < 0:
-                    self._state = const.STATE_COMPLETED
-                else:
-                    self._state = STATE_ON if self.schedule[const.ATTR_ENABLED] else STATE_OFF
 
         if self.hass is None:
             return
