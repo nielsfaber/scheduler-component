@@ -73,6 +73,7 @@ EVENT_STARTED = "scheduler_started"
 
 STATE_INIT = "init"
 STATE_READY = "ready"
+STATE_COMPLETED = "completed"
 
 
 def validate_time(time):
@@ -94,7 +95,9 @@ def validate_time(time):
 
 
 def validate_date(value: str) -> str:
-    """Wrap value in list if it is not one."""
+    """Input must be either none or a valid date."""
+    if value is None:
+        return None
     date = dt_util.parse_date(value)
     if date is None:
         raise vol.Invalid("Invalid date entered: {}".format(value))
@@ -161,8 +164,8 @@ SCHEDULE_SCHEMA = vol.Schema(
                 )
             ],
         ),
-        vol.Optional(ATTR_START_DATE): validate_date,
-        vol.Optional(ATTR_END_DATE): validate_date,
+        vol.Optional(ATTR_START_DATE, default=None): validate_date,
+        vol.Optional(ATTR_END_DATE, default=None): validate_date,
         vol.Required(ATTR_TIMESLOTS): vol.All(
             cv.ensure_list, vol.Length(min=1), [TIMESLOT_SCHEMA]
         ),

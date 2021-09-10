@@ -95,7 +95,6 @@ def parse_schedule_data(data: dict):
 
 class MigratableStore(Store):
     async def _async_migrate_func(self, old_version, data: dict):
-        _LOGGER.debug("_async_migrate_func")
 
         if old_version < 2:
             data["schedules"] = [
