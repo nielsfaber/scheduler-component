@@ -404,9 +404,10 @@ class TimerHandler:
             timestamps[next_slot] if next_slot is not None else None
         )
 
-    def current_timeslot(self):
+    def current_timeslot(self, now: datetime.datetime = None):
         """calculate the end of the timeslot that is overlapping now"""
-        now = dt_util.as_local(dt_util.utcnow())
+        if now is None:
+            now = dt_util.as_local(dt_util.utcnow())
 
         def unwrap_end_of_day(time_str: str):
             if time_str == "00:00:00":
