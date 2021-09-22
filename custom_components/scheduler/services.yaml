@@ -87,7 +87,7 @@ add:
 
 edit:
   name: Edit
-  description: Edit a schedule entitity
+  description: Edit a schedule entity
   fields:
     entity_id:
       name: Entity
@@ -140,6 +140,27 @@ edit:
     name:
       name: Name
       description: Friendly name for the schedule
+      required: false
+      example: 'My schedule'
+      selector:
+        text:
+
+copy:
+  name: Copy
+  description: Duplicate a schedule entity
+  fields:
+    entity_id:
+      name: Entity
+      description: Identifier of the scheduler entity.
+      example: "switch.schedule_abcdef"
+      required: true
+      selector:
+        entity:
+          integration: scheduler
+          domain: switch
+    name:
+      name: Name
+      description: Friendly name for the copied schedule
       required: false
       example: 'My schedule'
       selector:

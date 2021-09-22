@@ -115,6 +115,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         })
     )
 
+    def service_copy_schedule(service):
+        match = None
+        for (schedule_id, entity) in hass.data[const.DOMAIN]["schedules"].items():
+            if entity.entity_id == service.data[const.ATTR_ENTITY_ID]:
+                match = schedule_id
+                continue
+        if not match:
+            raise vol.Invalid("Entity not found: {}".format(service.data[const.ATTR_ENTITY_ID]))
+        else:
+            data = store.async_get_schedule(match)
+            del data[const.ATTR_SCHEDULE_ID]
+            if ATTR_NAME in service.data:
+                data[ATTR_NAME] = service.data[ATTR_NAME].strip()
+            coordinator.async_create_schedule(data)
+
+    hass.services.async_register(
+        const.DOMAIN,
+        const.SERVICE_COPY,
+        service_copy_schedule,
+        schema=vol.Schema({
+            vol.Required(ATTR_ENTITY_ID): cv.string,
+            vol.Optional(ATTR_NAME): vol.Any(cv.string, None),
+        })
+    )
+
     return True
 
 

@@ -116,6 +116,16 @@ Remove a scheduler entity.
 | ----------- | ------ | ----------------- | --------------------------------- | ----------------------------- |
 | `entity_id` | string | required          | Entity ID of the scheduler entity | e.g. `switch.schedule_123456` |
 
+                                                                     
+#### scheduler.copy
+Duplicate a scheduler entity.
+
+| field       | Type   | Optional/required | Description                                    | Remarks                                                                                                                                                              |
+| ----------- | ------ | ----------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entity_id` | string | required          | Entity ID of the existing scheduler entity     | e.g. `switch.schedule_123456`                                                                                                                                        |
+| `name`      | string | optional          | Friendly name for the created schedule entity. | The name will also be used for the entity_id of the schedule.<br> Default value is `Schedule #abcdef                     ` where `abcdef`=random generated sequence. |
+
+
 
 #### scheduler.run_action
 Manually trigger a schedule. 
