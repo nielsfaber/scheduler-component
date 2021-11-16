@@ -4,6 +4,7 @@ import logging
 from homeassistant.core import (
     HomeAssistant,
     callback,
+    CoreState,
 )
 from homeassistant.const import (
     CONF_SERVICE,
@@ -27,7 +28,7 @@ from homeassistant.helpers.event import (
     async_call_later,
 )
 from homeassistant.helpers.service import async_call_from_config
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.dispatcher import (async_dispatcher_connect, async_dispatcher_send)
 
 from . import const
 from .store import ScheduleEntry
@@ -65,7 +66,8 @@ def parse_service_call(data: dict):
             },
             {
                 CONF_SERVICE: ACTION_WAIT,
-                CONF_SERVICE_DATA: {CONF_DELAY: 1}
+                ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
+                CONF_SERVICE_DATA: {CONF_DELAY: 5}
             },
             {
                 CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
@@ -152,14 +154,10 @@ class ActionHandler:
     def __init__(self, hass: HomeAssistant, schedule_id: str):
         """init"""
         self.hass = hass
-        self._entity_tracker = None
-        self._queue = []
-        self._queue_busy = False
-        self._timer = None
+        self._queues = {}
         self.id = schedule_id
 
-        # trigger the queue once when HA has restarted
-        async_dispatcher_connect(self.hass, const.EVENT_STARTED, self.async_process_queue)
+        async_dispatcher_connect(self.hass, "action_queue_finished", self.async_cleanup_queues)
 
     async def async_queue_actions(self, data: ScheduleEntry):
         """add new actions to queue"""
@@ -173,60 +171,123 @@ class ActionHandler:
         ]
         condition_type = data[const.ATTR_CONDITION_TYPE]
 
-        entities = []
         for action in actions:
-            if ATTR_ENTITY_ID in action and action[ATTR_ENTITY_ID] not in entities and action[ATTR_ENTITY_ID]:
-                entities.append(action[ATTR_ENTITY_ID])
+            entity = action[ATTR_ENTITY_ID] if ATTR_ENTITY_ID in action else "none"
+
+            if entity not in self._queues:
+                self._queues[entity] = ActionQueue(self.hass, self.id, conditions, condition_type)
+
+            self._queues[entity].add_action(action)
+
+        for queue in self._queues.values():
+            await queue.async_start()
+
+    async def async_cleanup_queues(self, id: str):
+        """remove all objects from queue which have no remaining tasks"""
+        if id != self.id:
+            return
+
+        queue_items = list(self._queues.keys())
+        for key in queue_items:
+            if self._queues[key].is_finished():
+                await self._queues[key].async_clear()
+                self._queues.pop(key)
+
+        if not len(self._queues.keys()):
+            _LOGGER.debug("[{}]: finished execution of actions".format(self.id))
+
+    async def async_empty_queue(self):
+        """remove all objects from queue"""
+
+        while len(self._queues.keys()):
+            key = list(self._queues.keys())[0]
+            await self._queues[key].async_clear()
+            self._queues.pop(key)
+
+
+class ActionQueue:
+    def __init__(self, hass: HomeAssistant, id: str, conditions: list, condition_type: str):
+        """create a new action queue"""
+        self.hass = hass
+        self.id = id
+        self._timer = None
+        self._entities = []
+        self._entity_tracker = None
+        self._conditions = conditions
+        self._condition_type = condition_type
+        self._queue = []
+        self._queue_busy = False
+        self._startup_callback = None
 
         for condition in conditions:
-            if ATTR_ENTITY_ID in condition and condition[ATTR_ENTITY_ID] not in entities:
-                entities.append(condition[ATTR_ENTITY_ID])
+            if ATTR_ENTITY_ID in condition and condition[ATTR_ENTITY_ID] not in self._entities:
+                self._entities.append(condition[ATTR_ENTITY_ID])
 
-        for action in actions:
-            self._queue.append({
-                CONF_CONDITIONS: conditions,
-                "action": action,
-                const.ATTR_CONDITION_TYPE: condition_type
-            })
+    def add_action(self, action: dict):
+        """add an action to the queue"""
+        if ATTR_ENTITY_ID in action and action[ATTR_ENTITY_ID] and action[ATTR_ENTITY_ID] not in self._entities:
+            self._entities.append(action[ATTR_ENTITY_ID])
 
+        self._queue.append(action)
+
+    async def async_start(self):
+        """start execution of the actions in the queue"""
         @callback
-        async def async_entity_changed(entity, old_state, new_state):
+        async def async_entity_changed(entity, _old_state, _new_state):
             """check if actions can be processed"""
+
+            if self._queue_busy:
+                return
 
             _LOGGER.debug("[{}]: state of {} has changed, re-evaluating actions".format(self.id, entity))
             await self.async_process_queue()
 
-        if entities:
+        if len(self._entities):
             self._entity_tracker = async_track_state_change(
-                self.hass, entities, async_entity_changed
+                self.hass, self._entities, async_entity_changed
             )
+
         await self.async_process_queue()
 
-    async def async_empty_queue(self):
-        """remove the items from the queue and stop listening to entity changes"""
-        if self._entity_tracker:
-            self._entity_tracker()
-            self._entity_tracker = None
+        # trigger the queue once when HA has restarted
+        if self.hass.state != CoreState.running:
+            self._startup_callback = async_dispatcher_connect(self.hass, const.EVENT_STARTED, self.async_process_queue)
+
+    async def async_clear(self):
+        """clear action queue object"""
         if self._timer:
             self._timer()
-            self._timer = None
-        self._queue = []
+        self._timer = None
+
+        if self._entity_tracker:
+            self._entity_tracker()
+        self._entity_tracker = None
+
+        if self._startup_callback:
+            self._startup_callback()
+        self._startup_callback = None
+
+    def is_finished(self):
+        """check whether all queue items are finished"""
+        return len(self._queue) == 0
 
     async def async_process_queue(self):
         """walk through the list of tasks and execute the ones that are ready"""
-        i = 0
-        self._queue_busy = True
-        while i < len(self._queue):
-            item = self._queue[i]
-            action = item["action"]
-            conditions = item[CONF_CONDITIONS]
-            condition_type = item[const.ATTR_CONDITION_TYPE]
-            entities = []
+        if self._queue_busy:
+            return
 
+        i = 0
+        while i < len(self._queue):
+            self._queue_busy = True
+            action = self._queue[i]
+
+            # create a list of entities which are involved in the current task
+            entities = []
             if ATTR_ENTITY_ID in action and action[ATTR_ENTITY_ID]:
                 entities.append(action[ATTR_ENTITY_ID])
-            for condition in conditions:
-                if ATTR_ENTITY_ID in condition and condition[ATTR_ENTITY_ID] not in entities:
+
+            for condition in self._conditions:
+                if ATTR_ENTITY_ID in condition:
                     entities.append(condition[ATTR_ENTITY_ID])
 
             unavailable_entities = [
@@ -245,53 +306,66 @@ class ActionHandler:
                 ))
             else:
                 # all entities are available, execute the task
-                res = await self.async_execute_action(action, conditions, condition_type)
-                self._queue.pop(i)
-                if not res:
-                    return
+                success = await self.async_execute_action(action)
+                if success:
+                    self._queue.pop(i)
+
+            if self._queue_busy:
+                break
 
         if not len(self._queue):
-            await self.async_empty_queue()
+            async_dispatcher_send(self.hass, "action_queue_finished", self.id)
 
-        self._queue_busy = False
-
-    async def async_execute_action(self, service_call: dict, conditions: list, condition_type: str):
+    async def async_execute_action(self, service_call: dict):
         """execute a scheduled action"""
+
+        # verify conditions
         result = (
-            all(validate_condition(self.hass, item) for item in conditions)
-            if condition_type == const.CONDITION_TYPE_AND
-            else any(validate_condition(self.hass, item) for item in conditions)
-        ) if len(conditions) else True
+            all(validate_condition(self.hass, item) for item in self._conditions)
+            if self._condition_type == const.CONDITION_TYPE_AND
+            else any(validate_condition(self.hass, item) for item in self._conditions)
+        ) if len(self._conditions) else True
+
         if not result:
             _LOGGER.debug("[{}]: conditions have failed, skipping execution of action {}".format(
                 self.id,
                 service_call[CONF_SERVICE],
             ))
+            return False
+
+        if service_call[CONF_SERVICE] == ACTION_WAIT:
+            self.start_timer(service_call[CONF_SERVICE_DATA][CONF_DELAY])
+            return True
+
+        if ATTR_ENTITY_ID in service_call:
+            _LOGGER.debug("[{}]: Executing service {} on entity {}".format(
+                self.id, service_call[CONF_SERVICE], service_call[ATTR_ENTITY_ID]
+            ))
         else:
-            if ATTR_ENTITY_ID in service_call:
-                _LOGGER.debug("[{}]: Executing service {} on entity {}".format(
-                    self.id, service_call[CONF_SERVICE], service_call[ATTR_ENTITY_ID]
-                ))
-            else:
-                _LOGGER.debug("[{}]: Executing service {}".format(self.id, service_call[CONF_SERVICE]))
+            _LOGGER.debug("[{}]: Executing service {}".format(self.id, service_call[CONF_SERVICE]))
 
-            if service_call[CONF_SERVICE] == ACTION_WAIT:
-                @callback
-                async def async_timer_finished(_now):
-                    self._queue_busy = False
-                    self._timer = None
-                    await self.async_process_queue()
+        if service_call[CONF_SERVICE] == ACTION_WAIT:
+            self.start_timer(service_call[CONF_SERVICE_DATA][CONF_DELAY])
 
-                self._timer = async_call_later(
-                    self.hass,
-                    service_call[CONF_SERVICE_DATA][CONF_DELAY],
-                    async_timer_finished
-                )
-                return False
-
-            await async_call_from_config(
-                self.hass,
-                service_call,
-            )
+        await async_call_from_config(
+            self.hass,
+            service_call,
+        )
+        self._queue_busy = False
 
         return True
+
+    def start_timer(self, delay: int):
+        """start a timer for postponing remaining tasks in the queue"""
+        @callback
+        async def async_timer_finished(_now):
+            self._timer = None
+            self._queue_busy = False
+            await self.async_process_queue()
+
+        self._timer = async_call_later(
+            self.hass,
+            delay,
+            async_timer_finished
+        )
+        _LOGGER.debug("[{}]: Postponing next action for {} seconds".format(self.id, delay))
