@@ -21,6 +21,8 @@ from homeassistant.components.climate import (
     SERVICE_SET_HVAC_MODE,
     ATTR_HVAC_MODE,
     ATTR_TEMPERATURE,
+    ATTR_TARGET_TEMP_LOW,
+    ATTR_TARGET_TEMP_HIGH,
     DOMAIN as CLIMATE_DOMAIN,
 )
 from homeassistant.helpers.event import (
@@ -51,18 +53,20 @@ def parse_service_call(data: dict):
     if (
         service_call[CONF_SERVICE] == "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE)
         and ATTR_HVAC_MODE in service_call[CONF_SERVICE_DATA]
-        and ATTR_TEMPERATURE in service_call[CONF_SERVICE_DATA]
-        and len(service_call[CONF_SERVICE_DATA]) == 2
+        and (
+            ATTR_TEMPERATURE in service_call[CONF_SERVICE_DATA] or
+            ATTR_TARGET_TEMP_LOW in service_call[CONF_SERVICE_DATA] or
+            ATTR_TARGET_TEMP_HIGH in service_call[CONF_SERVICE_DATA]
+        )
+        and ATTR_ENTITY_ID in service_call
     ):
         # fix for climate integrations which don't support setting hvac_mode and temperature together
         # add small delay between service calls for integrations that have a long processing time
         service_call = [
             {
-                CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE),
+                CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
                 ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
-                CONF_SERVICE_DATA: {
-                    ATTR_HVAC_MODE: service_call[CONF_SERVICE_DATA][ATTR_HVAC_MODE]
-                },
+                CONF_SERVICE_DATA: service_call[CONF_SERVICE_DATA]
             },
             {
                 CONF_SERVICE: ACTION_WAIT,
@@ -70,10 +74,10 @@ def parse_service_call(data: dict):
                 CONF_SERVICE_DATA: {CONF_DELAY: 5}
             },
             {
-                CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
+                CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE),
                 ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
                 CONF_SERVICE_DATA: {
-                    ATTR_TEMPERATURE: service_call[CONF_SERVICE_DATA][ATTR_TEMPERATURE]
+                    ATTR_HVAC_MODE: service_call[CONF_SERVICE_DATA][ATTR_HVAC_MODE]
                 },
             }
         ]
