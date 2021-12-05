@@ -23,7 +23,7 @@ class SchedulesAddView(HomeAssistantView):
     url = "/api/{}/add".format(const.DOMAIN)
     name = "api:{}:add".format(const.DOMAIN)
 
-    @RequestDataValidator(const.SCHEDULE_SCHEMA)
+    @RequestDataValidator(const.ADD_SCHEDULE_SCHEMA)
     async def post(self, request, data):
         """Handle config update request."""
         hass = request.app["hass"]
@@ -39,7 +39,7 @@ class SchedulesEditView(HomeAssistantView):
     name = "api:{}:edit".format(const.DOMAIN)
 
     @RequestDataValidator(
-        const.SCHEDULE_SCHEMA.extend(
+        const.EDIT_SCHEDULE_SCHEMA.extend(
             {
                 vol.Required(const.ATTR_SCHEDULE_ID): cv.string
             }

@@ -107,7 +107,7 @@ Overwrites the old value.
 
 The service parameters are the same as for `scheduler.add`, except that the `entity_id` needs to be provided of the schedule which needs to be modified.
 
-Note that all parameters needs to be provided, if a parameter is not provided (and it is optional), the default value will be set.
+Note that only the parameters that should be changed have to be provided, if a parameter is not provided, the previous value will be kept.
                                                                                                                                                  
 #### scheduler.remove
 Remove a scheduler entity.
@@ -140,13 +140,14 @@ Manually trigger a schedule.
 #### Timeslot
 A timeslot defines the timepoints on which a schedule is triggered, together with the actions that need to be executed. Optionally also conditions can be specified that need to be validated before the actions may be fired.
 
-| Name             | Type   | Optional/required | Description                                                              | Remarks                                                                                                                                                               |
-| ---------------- | ------ | ----------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `start`          | string | required          | Time (in 24 hours format) on which the schedule should trigger           | Should be in the range 00:00-23:59.<br>Each timeslot should have a unique value.<br> Input may also be relative to sun: e.g. `sunrise+01:00` or `sunset-00:00`.       |
-| `stop`           | string | optional          | Time (in 24 hours format) on which the timeslot ends                     | Only required when defining timeslots.<br> Should be in the range 00:01-00:00 (start of next day).<br>The `stop` time must be at least one minute after `start` time. |
-| `conditions`     | list   | optional          | Conditions that should be validated before the action(s) may be executed | See [Condition](#condition) for more info.                                                                                                                            |
-| `condition_type` | string | optional          | Logic to apply when validating multiple conditions                       | Valid values are:<ul><li>`and`: All conditions must be met</li><li>`or`: One or more of the conditions must be met</li></ul>                                          |
-| `actions`        | list   | required          | Actions to execute when the `start` time is reached.                     | See [Action](#action) for more info.                                                                                                                                  |
+| Name               | Type    | Optional/required | Description                                                                           | Remarks                                                                                                                                                               |
+| ------------------ | ------- | ----------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `start`            | string  | required          | Time (in 24 hours format) on which the schedule should trigger                        | Should be in the range 00:00-23:59.<br>Each timeslot should have a unique value.<br> Input may also be relative to sun: e.g. `sunrise+01:00` or `sunset-00:00`.       |
+| `stop`             | string  | optional          | Time (in 24 hours format) on which the timeslot ends                                  | Only required when defining timeslots.<br> Should be in the range 00:01-00:00 (start of next day).<br>The `stop` time must be at least one minute after `start` time. |
+| `conditions`       | list    | optional          | Conditions that should be validated before the action(s) may be executed              | See [Condition](#condition) for more info.                                                                                                                            |
+| `condition_type`   | string  | optional          | Logic to apply when validating multiple conditions                                    | Valid values are:<ul><li>`and`: All conditions must be met</li><li>`or`: One or more of the conditions must be met</li></ul>                                          |
+| `track_conditions` | boolean | optional          | Watch condition entities for changes, repeat the actions once conditions become valid |                                                                                                                                                                       |
+| `actions`          | list    | required          | Actions to execute when the `start` time is reached.                                  | See [Action](#action) for more info.                                                                                                                                  |
 
 **Note**:
 

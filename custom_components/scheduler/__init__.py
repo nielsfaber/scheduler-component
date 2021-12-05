@@ -70,7 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         const.DOMAIN,
         const.SERVICE_ADD,
         service_create_schedule,
-        schema=const.SCHEDULE_SCHEMA
+        schema=const.ADD_SCHEDULE_SCHEMA
     )
 
     async def async_service_edit_schedule(service):
@@ -90,7 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         const.DOMAIN,
         const.SERVICE_EDIT,
         async_service_edit_schedule,
-        schema=const.SCHEDULE_SCHEMA.extend({
+        schema=const.EDIT_SCHEDULE_SCHEMA.extend({
             vol.Required(ATTR_ENTITY_ID): cv.string
         })
     )

@@ -123,14 +123,14 @@ edit:
       name: Timeslots
       description: list of timeslots with their actions and optionally conditions (should be kept the same for all timeslots)
       example: '[{start: "12:00", stop: "13:00", actions: [{service: "light.turn_on", entity_id: "light.my_lamp", service_data: {brightness: 200}}]}]'
-      required: true
+      required: false
       selector:
         object:
     repeat_type:
       name: Repeat Type
       description: Control what happens after the schedule is triggered
       example: '"repeat"'
-      required: true
+      required: false
       selector:
         select:
           options:
