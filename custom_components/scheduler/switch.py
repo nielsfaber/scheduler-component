@@ -188,7 +188,14 @@ class ScheduleEntity(ToggleEntity):
         )
         if self._current_slot is not None and self._timer_handler.current_slot is None:
             # we are leaving a timeslot, stop execution of actions
-            await self._action_handler.async_empty_queue()
+            if (
+                len(self.schedule[const.ATTR_TIMESLOTS]) == 1 and
+                self.schedule[const.ATTR_REPEAT_TYPE] == const.REPEAT_TYPE_REPEAT
+            ):
+                # allow unavailable entities to restore within 9 mins (+1 minute of triggered duration)
+                await self._action_handler.async_empty_queue(restore_time=9)
+            else:
+                await self._action_handler.async_empty_queue()
 
             if (
                 self._current_slot == (len(self.schedule[const.ATTR_TIMESLOTS]) - 1) and

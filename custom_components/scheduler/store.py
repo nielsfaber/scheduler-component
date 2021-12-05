@@ -48,6 +48,7 @@ class TimeslotEntry:
     stop = attr.ib(type=str, default=None)
     conditions = attr.ib(type=[ConditionEntry], default=[])
     condition_type = attr.ib(type=str, default=None)
+    track_conditions = attr.ib(type=bool, default=False)
     actions = attr.ib(type=[ActionEntry], default=[])
 
 
@@ -186,6 +187,7 @@ class ScheduleStorage:
                     const.ATTR_STOP: slot.stop,
                     CONF_CONDITIONS: [],
                     const.ATTR_CONDITION_TYPE: slot.condition_type,
+                    const.ATTR_TRACK_CONDITIONS: slot.track_conditions,
                     const.ATTR_ACTIONS: [],
                 }
                 if slot.conditions:
