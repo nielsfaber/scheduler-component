@@ -83,16 +83,6 @@ def parse_service_call(data: dict):
                     ATTR_HVAC_MODE: service_call[CONF_SERVICE_DATA][ATTR_HVAC_MODE]
                 },
             },
-            {
-                CONF_SERVICE: ACTION_WAIT,
-                ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
-                CONF_SERVICE_DATA: {CONF_DELAY: 5},
-            },
-            {
-                CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
-                ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
-                CONF_SERVICE_DATA: service_call[CONF_SERVICE_DATA],
-            },
         ]
         return service_call
     else:
@@ -176,42 +166,6 @@ def validate_condition(hass: HomeAssistant, condition: dict):
     #     .format(condition[ATTR_ENTITY_ID], required, actual, condition[const.ATTR_MATCH_TYPE], result)
     # )
     return result
-
-
-def action_has_effect(action: dict, hass: HomeAssistant):
-    """check if action has an effect on the entity"""
-    if not ATTR_ENTITY_ID in action:
-        return True
-
-    domain = action[CONF_SERVICE].split(".").pop(0)
-    service = action[CONF_SERVICE].split(".").pop(1)
-    state = hass.states.get(action[ATTR_ENTITY_ID])
-    current_state = state.state if state else None
-
-    if domain == CLIMATE_DOMAIN:
-        if service == SERVICE_SET_HVAC_MODE:
-            return action[CONF_SERVICE_DATA][ATTR_HVAC_MODE] != current_state
-        elif service == SERVICE_SET_TEMPERATURE:
-            if (
-                ATTR_HVAC_MODE in action[CONF_SERVICE_DATA]
-                and action[CONF_SERVICE_DATA].get(ATTR_HVAC_MODE) != current_state
-            ):
-                return True
-            elif ATTR_TEMPERATURE in action[CONF_SERVICE_DATA]:
-                return float(state.attributes.get(ATTR_TEMPERATURE)) != float(
-                    action[CONF_SERVICE_DATA].get(ATTR_TEMPERATURE)
-                )
-            elif (
-                ATTR_TARGET_TEMP_LOW in action[CONF_SERVICE_DATA]
-                and ATTR_TARGET_TEMP_HIGH in action[CONF_SERVICE_DATA]
-            ):
-                return float(state.attributes.get(ATTR_TARGET_TEMP_LOW)) != float(
-                    action[CONF_SERVICE_DATA].get(ATTR_TARGET_TEMP_LOW)
-                ) or float(state.attributes.get(ATTR_TARGET_TEMP_HIGH)) != float(
-                    action[CONF_SERVICE_DATA].get(ATTR_TARGET_TEMP_HIGH)
-                )
-
-    return True
 
 
 class ActionHandler:
@@ -463,15 +417,10 @@ class ActionQueue:
                 while len(self._queue):
                     self._queue.pop()
 
-        skip_action = False
-
         while task_idx < len(self._queue):
             action = self._queue[task_idx]
 
             if action[CONF_SERVICE] == ACTION_WAIT:
-                if skip_action:
-                    task_idx = task_idx + 1
-                    continue
 
                 @callback
                 async def async_timer_finished(_now):
@@ -502,14 +451,10 @@ class ActionQueue:
                     "[{}]: Executing service {}".format(self.id, action[CONF_SERVICE])
                 )
 
-            skip_action = not action_has_effect(action, self.hass)
-            if skip_action:
-                _LOGGER.debug("[{}]: Action has no effect, skipping".format(self.id))
-            else:
-                await async_call_from_config(
-                    self.hass,
-                    action,
-                )
+            await async_call_from_config(
+                self.hass,
+                action,
+            )
             task_idx = task_idx + 1
 
         self.queue_busy = False
