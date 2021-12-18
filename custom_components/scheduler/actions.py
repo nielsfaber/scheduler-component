@@ -65,6 +65,7 @@ def parse_service_call(data: dict):
     ):
         # fix for climate integrations which don't support setting hvac_mode and temperature together
         # add small delay between service calls for integrations that have a long processing time
+        # set temperature setpoint again for integrations which lose setpoint after switching hvac_mode
         service_call = [
             {
                 CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
@@ -91,7 +92,11 @@ def parse_service_call(data: dict):
             {
                 CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
                 ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
-                CONF_SERVICE_DATA: service_call[CONF_SERVICE_DATA],
+                CONF_SERVICE_DATA: {
+                    x: service_call[CONF_SERVICE_DATA][x]
+                    for x in service_call[CONF_SERVICE_DATA]
+                    if x != ATTR_HVAC_MODE
+                },
             },
         ]
         return service_call
