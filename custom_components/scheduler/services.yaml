@@ -1,4 +1,3 @@
-
 run_action:
   name: Run Action
   description: Execute the action of a schedule, optionally at a given time.
@@ -81,7 +80,7 @@ add:
       name: Name
       description: Friendly name for the schedule
       required: false
-      example: 'My schedule'
+      example: "My schedule"
       selector:
         text:
 
@@ -141,7 +140,7 @@ edit:
       name: Name
       description: Friendly name for the schedule
       required: false
-      example: 'My schedule'
+      example: "My schedule"
       selector:
         text:
 
@@ -162,6 +161,6 @@ copy:
       name: Name
       description: Friendly name for the copied schedule
       required: false
-      example: 'My schedule'
+      example: "My schedule"
       selector:
         text:

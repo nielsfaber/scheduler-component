@@ -6,10 +6,7 @@ from homeassistant.components import websocket_api
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.components.http.data_validator import RequestDataValidator
 from homeassistant.core import callback
-from homeassistant.components.websocket_api import (
-  decorators,
-  async_register_command
-)
+from homeassistant.components.websocket_api import decorators, async_register_command
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from . import const
 from .store import ScheduleEntry
@@ -40,9 +37,7 @@ class SchedulesEditView(HomeAssistantView):
 
     @RequestDataValidator(
         const.EDIT_SCHEDULE_SCHEMA.extend(
-            {
-                vol.Required(const.ATTR_SCHEDULE_ID): cv.string
-            }
+            {vol.Required(const.ATTR_SCHEDULE_ID): cv.string}
         )
     )
     async def post(self, request, data):
@@ -61,13 +56,7 @@ class SchedulesRemoveView(HomeAssistantView):
     url = "/api/{}/remove".format(const.DOMAIN)
     name = "api:{}:remove".format(const.DOMAIN)
 
-    @RequestDataValidator(
-        vol.Schema(
-            {
-                vol.Required(const.ATTR_SCHEDULE_ID): cv.string
-            }
-        )
-    )
+    @RequestDataValidator(vol.Schema({vol.Required(const.ATTR_SCHEDULE_ID): cv.string}))
     async def post(self, request, data):
         """Handle config update request."""
         hass = request.app["hass"]
@@ -102,9 +91,11 @@ def websocket_get_tags(hass, connection, msg):
 
 
 @callback
-@decorators.websocket_command({
-    vol.Required("type"): const.EVENT,
-})
+@decorators.websocket_command(
+    {
+        vol.Required("type"): const.EVENT,
+    }
+)
 @decorators.async_response
 async def handle_subscribe_updates(hass, connection, msg):
     """subscribe listeners when frontend connection is opened"""
@@ -114,81 +105,101 @@ async def handle_subscribe_updates(hass, connection, msg):
     @callback
     def async_handle_event_item_created(schedule: ScheduleEntry):
         """pass data to frontend when backend changes"""
-        connection.send_message({
-            "id": msg["id"],
-            "type": "event",
-            "event": {  # data to pass with event
-                "event": const.EVENT_ITEM_CREATED,
-                "schedule_id": schedule.schedule_id,
+        connection.send_message(
+            {
+                "id": msg["id"],
+                "type": "event",
+                "event": {  # data to pass with event
+                    "event": const.EVENT_ITEM_CREATED,
+                    "schedule_id": schedule.schedule_id,
+                },
             }
-        })
+        )
 
     listeners.append(
-        async_dispatcher_connect(hass, const.EVENT_ITEM_CREATED, async_handle_event_item_created)
+        async_dispatcher_connect(
+            hass, const.EVENT_ITEM_CREATED, async_handle_event_item_created
+        )
     )
 
     @callback
     def async_handle_event_item_updated(schedule_id: str):
         """pass data to frontend when backend changes"""
-        connection.send_message({
-            "id": msg["id"],
-            "type": "event",
-            "event": {  # data to pass with event
-                "event": const.EVENT_ITEM_UPDATED,
-                "schedule_id": schedule_id,
+        connection.send_message(
+            {
+                "id": msg["id"],
+                "type": "event",
+                "event": {  # data to pass with event
+                    "event": const.EVENT_ITEM_UPDATED,
+                    "schedule_id": schedule_id,
+                },
             }
-        })
+        )
 
     listeners.append(
-        async_dispatcher_connect(hass, const.EVENT_ITEM_UPDATED, async_handle_event_item_updated)
+        async_dispatcher_connect(
+            hass, const.EVENT_ITEM_UPDATED, async_handle_event_item_updated
+        )
     )
 
     @callback
     def async_handle_event_item_removed(schedule_id: str):
         """pass data to frontend when backend changes"""
-        connection.send_message({
-            "id": msg["id"],
-            "type": "event",
-            "event": {  # data to pass with event
-                "event": const.EVENT_ITEM_REMOVED,
-                "schedule_id": schedule_id,
+        connection.send_message(
+            {
+                "id": msg["id"],
+                "type": "event",
+                "event": {  # data to pass with event
+                    "event": const.EVENT_ITEM_REMOVED,
+                    "schedule_id": schedule_id,
+                },
             }
-        })
+        )
 
     listeners.append(
-        async_dispatcher_connect(hass, const.EVENT_ITEM_REMOVED, async_handle_event_item_removed)
+        async_dispatcher_connect(
+            hass, const.EVENT_ITEM_REMOVED, async_handle_event_item_removed
+        )
     )
 
     @callback
     def async_handle_event_timer_updated(schedule_id: str):
         """pass data to frontend when backend changes"""
-        connection.send_message({
-            "id": msg["id"],
-            "type": "event",
-            "event": {  # data to pass with event
-                "event": const.EVENT_TIMER_UPDATED,
-                "schedule_id": schedule_id,
+        connection.send_message(
+            {
+                "id": msg["id"],
+                "type": "event",
+                "event": {  # data to pass with event
+                    "event": const.EVENT_TIMER_UPDATED,
+                    "schedule_id": schedule_id,
+                },
             }
-        })
+        )
 
     listeners.append(
-        async_dispatcher_connect(hass, const.EVENT_TIMER_UPDATED, async_handle_event_timer_updated)
+        async_dispatcher_connect(
+            hass, const.EVENT_TIMER_UPDATED, async_handle_event_timer_updated
+        )
     )
 
     @callback
     def async_handle_event_timer_finished(schedule_id: str):
         """pass data to frontend when backend changes"""
-        connection.send_message({
-            "id": msg["id"],
-            "type": "event",
-            "event": {  # data to pass with event
-                "event": const.EVENT_TIMER_FINISHED,
-                "schedule_id": schedule_id,
+        connection.send_message(
+            {
+                "id": msg["id"],
+                "type": "event",
+                "event": {  # data to pass with event
+                    "event": const.EVENT_TIMER_FINISHED,
+                    "schedule_id": schedule_id,
+                },
             }
-        })
+        )
 
     listeners.append(
-        async_dispatcher_connect(hass, const.EVENT_TIMER_FINISHED, async_handle_event_timer_finished)
+        async_dispatcher_connect(
+            hass, const.EVENT_TIMER_FINISHED, async_handle_event_timer_finished
+        )
     )
 
     def unsubscribe_listeners():
@@ -211,32 +222,35 @@ async def async_register_websockets(hass):
     hass.components.websocket_api.async_register_command(
         const.DOMAIN,
         websocket_get_schedules,
-        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend({
-            vol.Required("type"): const.DOMAIN,
-        })
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): const.DOMAIN,
+            }
+        ),
     )
 
     # pass single schedule to frontend
     hass.components.websocket_api.async_register_command(
         "{}/item".format(const.DOMAIN),
         websocket_get_schedule_item,
-        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend({
-            vol.Required("type"): "{}/item".format(const.DOMAIN),
-            vol.Required(const.ATTR_SCHEDULE_ID): cv.string,
-        }),
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): "{}/item".format(const.DOMAIN),
+                vol.Required(const.ATTR_SCHEDULE_ID): cv.string,
+            }
+        ),
     )
 
     # pass list of tags to frontend
     hass.components.websocket_api.async_register_command(
         "{}/tags".format(const.DOMAIN),
         websocket_get_tags,
-        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend({
-            vol.Required("type"): "{}/tags".format(const.DOMAIN),
-        })
+        websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
+            {
+                vol.Required("type"): "{}/tags".format(const.DOMAIN),
+            }
+        ),
     )
 
     # instantiate listener for sending event to frontend on backend change
-    async_register_command(
-      hass,
-      handle_subscribe_updates
-    )
+    async_register_command(hass, handle_subscribe_updates)

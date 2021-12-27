@@ -88,7 +88,10 @@ class TimerHandler:
         async def async_item_updated(id: str):
             if id == self.id:
                 await self.async_reload_data()
-        self._update_listener = async_dispatcher_connect(self.hass, const.EVENT_ITEM_UPDATED, async_item_updated)
+
+        self._update_listener = async_dispatcher_connect(
+            self.hass, const.EVENT_ITEM_UPDATED, async_item_updated
+        )
 
     async def async_reload_data(self):
         """load schedule data into timer class object and start timer"""
@@ -122,7 +125,9 @@ class TimerHandler:
 
         # the next trigger time is next slot or end of current slot (whichever comes first)
         timestamp = find_closest_from_now([timestamp_end, timestamp_next])
-        self._timer_is_endpoint = timestamp != timestamp_next and timestamp == timestamp_end
+        self._timer_is_endpoint = (
+            timestamp != timestamp_next and timestamp == timestamp_end
+        )
         if timestamp == timestamp_next and timestamp is not None:
             self._next_slot = next_slot
         else:
@@ -138,9 +143,11 @@ class TimerHandler:
             if self._timer:
                 self._timer()
 
-            if (timestamp-now).total_seconds() < 0:
+            if (timestamp - now).total_seconds() < 0:
                 self._timer = None
-                _LOGGER.debug("Timer of {} is not set because it is in the past".format(self.id))
+                _LOGGER.debug(
+                    "Timer of {} is not set because it is in the past".format(self.id)
+                )
             else:
                 self._timer = async_track_point_in_time(
                     self.hass, self.async_timer_finished, timestamp
@@ -161,8 +168,11 @@ class TimerHandler:
     async def async_start_sun_tracker(self):
         """check for changes in the sun sensor"""
         if (
-            (self._next_trigger is not None and any(has_sun(x) for x in self._watched_times)) or
-            (self._next_trigger is None and all(has_sun(x[const.ATTR_START]) for x in self._timeslots))
+            self._next_trigger is not None
+            and any(has_sun(x) for x in self._watched_times)
+        ) or (
+            self._next_trigger is None
+            and all(has_sun(x[const.ATTR_START]) for x in self._timeslots)
         ):
             # install sun tracker for updating timer when sun changes
             # initially the time calculation may fail due to the sun entity being unavailable
@@ -179,7 +189,9 @@ class TimerHandler:
                     # sun entity has initialized
                     await self.async_start_timer()
                     return
-                ts = find_closest_from_now(self.calculate_timestamp(x) for x in self._watched_times)
+                ts = find_closest_from_now(
+                    self.calculate_timestamp(x) for x in self._watched_times
+                )
                 if not ts or not self._next_trigger:
                     # sun entity became unavailable (or other corner case)
                     await self.async_start_timer()
@@ -192,9 +204,7 @@ class TimerHandler:
                     await self.async_start_timer()
 
             self._sun_tracker = async_track_state_change(
-                self.hass,
-                const.SUN_ENTITY,
-                async_sun_updated
+                self.hass, const.SUN_ENTITY, async_sun_updated
             )
         else:
             # clear existing tracker
@@ -208,7 +218,10 @@ class TimerHandler:
 
     async def async_start_workday_tracker(self):
         """check for changes in the workday sensor"""
-        if const.DAY_TYPE_WORKDAY in self._weekdays or const.DAY_TYPE_WEEKEND in self._weekdays:
+        if (
+            const.DAY_TYPE_WORKDAY in self._weekdays
+            or const.DAY_TYPE_WEEKEND in self._weekdays
+        ):
             # install tracker for updating timer when workday sensor changes
 
             if self._workday_tracker is not None:
@@ -234,9 +247,7 @@ class TimerHandler:
                         await self.async_start_timer()
 
             self._workday_tracker = async_track_state_change(
-                self.hass,
-                const.WORKDAY_ENTITY,
-                async_workday_updated
+                self.hass, const.WORKDAY_ENTITY, async_workday_updated
             )
         else:
             # clear existing tracker
@@ -253,14 +264,18 @@ class TimerHandler:
         if not self._timer_is_endpoint:
             # timer marks the start of a new timeslot
             self.current_slot = self._next_slot
-            _LOGGER.debug("Timer {} has reached slot {}".format(self.id, self.current_slot))
+            _LOGGER.debug(
+                "Timer {} has reached slot {}".format(self.id, self.current_slot)
+            )
             async_dispatcher_send(self.hass, const.EVENT_TIMER_FINISHED, self.id)
             # don't automatically reset, wait for external reset after 1 minute
             # await self.async_start_timer()
             await self.async_stop_timer()
         else:
             # timer marks the end of a timeslot
-            _LOGGER.debug("Timer {} has reached end of timeslot, resetting..".format(self.id))
+            _LOGGER.debug(
+                "Timer {} has reached end of timeslot, resetting..".format(self.id)
+            )
             await self.async_start_timer()
 
     def day_in_weekdays(self, ts: datetime.datetime) -> bool:
@@ -269,9 +284,9 @@ class TimerHandler:
         workday_sensor = self.hass.states.get(const.WORKDAY_ENTITY)
 
         if (
-            workday_sensor and
-            workday_sensor.state in [STATE_ON, STATE_OFF] and
-            is_same_day(ts, dt_util.as_local(dt_util.utcnow()))
+            workday_sensor
+            and workday_sensor.state in [STATE_ON, STATE_OFF]
+            and is_same_day(ts, dt_util.as_local(dt_util.utcnow()))
         ):
             # state of workday sensor is used for evaluating workday vs weekend
             if const.DAY_TYPE_WORKDAY in self._weekdays:
@@ -296,7 +311,9 @@ class TimerHandler:
             return True
         return day in self._weekdays
 
-    def calculate_timestamp(self, time_str, now: datetime.datetime = None, iteration: int = 0) -> datetime.datetime:
+    def calculate_timestamp(
+        self, time_str, now: datetime.datetime = None, iteration: int = 0
+    ) -> datetime.datetime:
         """calculate the next occurence of a time string"""
         if time_str is None:
             return None
@@ -308,10 +325,7 @@ class TimerHandler:
             # fixed time
             time = dt_util.parse_time(time_str)
             ts = dt_util.find_next_time_expression_time(
-                now,
-                [time.second],
-                [time.minute],
-                [time.hour]
+                now, [time.second], [time.minute], [time.hour]
             )
         else:
             # relative to sunrise/sunset
@@ -319,18 +333,28 @@ class TimerHandler:
             if not sun:
                 return None
             ts = None
-            if res.group(1) == const.SUN_EVENT_SUNRISE and ATTR_NEXT_RISING in sun.attributes:
+            if (
+                res.group(1) == const.SUN_EVENT_SUNRISE
+                and ATTR_NEXT_RISING in sun.attributes
+            ):
                 ts = dt_util.parse_datetime(sun.attributes[ATTR_NEXT_RISING])
-            elif res.group(1) == const.SUN_EVENT_SUNSET and ATTR_NEXT_SETTING in sun.attributes:
+            elif (
+                res.group(1) == const.SUN_EVENT_SUNSET
+                and ATTR_NEXT_SETTING in sun.attributes
+            ):
                 ts = dt_util.parse_datetime(sun.attributes[ATTR_NEXT_SETTING])
             if not ts:
                 return None
             ts = dt_util.as_local(ts)
             ts = ts.replace(second=0)
-            time_sun = datetime.timedelta(hours=ts.hour, minutes=ts.minute, seconds=ts.second)
+            time_sun = datetime.timedelta(
+                hours=ts.hour, minutes=ts.minute, seconds=ts.second
+            )
             offset = dt_util.parse_time(res.group(3))
-            offset = datetime.timedelta(hours=offset.hour, minutes=offset.minute, seconds=offset.second)
-            if res.group(2) == '-':
+            offset = datetime.timedelta(
+                hours=offset.hour, minutes=offset.minute, seconds=offset.second
+            )
+            if res.group(2) == "-":
                 if (time_sun - offset).total_seconds() >= 0:
                     ts = ts - offset
                 else:
@@ -343,32 +367,39 @@ class TimerHandler:
                     # prevent offset to shift the time past the extends of the day
                     ts = ts.replace(hour=23, minute=59, second=0)
             ts = dt_util.find_next_time_expression_time(
-                now,
-                [ts.second],
-                [ts.minute],
-                [ts.hour]
+                now, [ts.second], [ts.minute], [ts.hour]
             )
 
         time_delta = datetime.timedelta(seconds=1)
 
-        if self.day_in_weekdays(ts) and ((ts - now).total_seconds() > 0 or iteration > 0):
+        if self.day_in_weekdays(ts) and (
+            (ts - now).total_seconds() > 0 or iteration > 0
+        ):
 
             if self._start_date and days_until_date(self._start_date, ts) > 0:
                 # start date is more than a week in the future, jump to start date
-                time_delta = datetime.timedelta(days=days_until_date(self._start_date, ts))
+                time_delta = datetime.timedelta(
+                    days=days_until_date(self._start_date, ts)
+                )
 
             elif self._end_date and days_until_date(self._end_date, ts) < 0:
                 # end date is in the past, jump to end date
-                time_delta = datetime.timedelta(days=days_until_date(self._end_date, ts))
+                time_delta = datetime.timedelta(
+                    days=days_until_date(self._end_date, ts)
+                )
 
             else:
                 # date restrictions are met
                 return ts
 
         # calculate next timestamp
-        next_day = dt_util.find_next_time_expression_time(now + time_delta, [0], [0], [0])
+        next_day = dt_util.find_next_time_expression_time(
+            now + time_delta, [0], [0], [0]
+        )
         if iteration > 7:
-            _LOGGER.warning("failed to calculate next timeslot for schedule {}".format(self.id))
+            _LOGGER.warning(
+                "failed to calculate next timeslot for schedule {}".format(self.id)
+            )
             return None
         return self.calculate_timestamp(time_str, next_day, iteration + 1)
 
@@ -399,10 +430,7 @@ class TimerHandler:
 
         next_slot = slot_order[0] if len(slot_order) > 0 else None
 
-        return (
-            next_slot,
-            timestamps[next_slot] if next_slot is not None else None
-        )
+        return (next_slot, timestamps[next_slot] if next_slot is not None else None)
 
     def current_timeslot(self, now: datetime.datetime = None):
         """calculate the end of the timeslot that is overlapping now"""
@@ -420,7 +448,9 @@ class TimerHandler:
         for slot in self._timeslots:
             if slot[const.ATTR_STOP] is not None:
                 timestamps.append(
-                    self.calculate_timestamp(unwrap_end_of_day(slot[const.ATTR_STOP]), now)
+                    self.calculate_timestamp(
+                        unwrap_end_of_day(slot[const.ATTR_STOP]), now
+                    )
                 )
             else:
                 ts = self.calculate_timestamp(slot[const.ATTR_START], now)
@@ -437,7 +467,9 @@ class TimerHandler:
             (ts - now).total_seconds() if ts is not None else now.timestamp()
             for ts in timestamps
         ]
-        (next_slot_end, val) = sorted(enumerate(remaining), key=lambda i: (i[1] < 0, abs(i[1])))[0]
+        (next_slot_end, val) = sorted(
+            enumerate(remaining), key=lambda i: (i[1] < 0, abs(i[1]))
+        )[0]
 
         stop = timestamps[next_slot_end]
         if stop is not None:
@@ -448,7 +480,7 @@ class TimerHandler:
 
             start = self.calculate_timestamp(
                 self._timeslots[next_slot_end][const.ATTR_START],
-                stop - datetime.timedelta(days=1)
+                stop - datetime.timedelta(days=1),
             )
 
             if start is not None:
@@ -457,6 +489,8 @@ class TimerHandler:
                     # timeslot is currently overlapping
                     return (
                         next_slot_end,
-                        stop if self._timeslots[next_slot_end][const.ATTR_STOP] is not None else None
+                        stop
+                        if self._timeslots[next_slot_end][const.ATTR_STOP] is not None
+                        else None,
                     )
         return (None, None)

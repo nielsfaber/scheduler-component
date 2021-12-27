@@ -7,7 +7,7 @@ import voluptuous as vol
 
 import homeassistant.util.dt as dt_util
 from homeassistant.components.switch import DOMAIN as PLATFORM
-from homeassistant.helpers import (entity_platform, config_validation as cv)
+from homeassistant.helpers import entity_platform, config_validation as cv
 from homeassistant.const import (
     STATE_ALARM_TRIGGERED as STATE_TRIGGERED,
     STATE_OFF,
@@ -19,9 +19,7 @@ from homeassistant.const import (
     CONF_SERVICE,
     ATTR_SERVICE_DATA,
 )
-from homeassistant.core import (
-    callback
-)
+from homeassistant.core import callback
 from homeassistant.helpers.device_registry import async_entries_for_config_entry
 from homeassistant.helpers.entity import ToggleEntity
 from homeassistant.helpers.entity_registry import async_entries_for_device
@@ -44,10 +42,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SERVICE_RUN_ACTION = "run_action"
 RUN_ACTION_SCHEMA = vol.Schema(
-    {
-        vol.Required(ATTR_ENTITY_ID): cv.entity_ids,
-        vol.Optional(ATTR_TIME): cv.time
-    }
+    {vol.Required(ATTR_ENTITY_ID): cv.entity_ids, vol.Optional(ATTR_TIME): cv.time}
 )
 
 
@@ -60,7 +55,7 @@ def date_in_future(date_string: str):
     now = dt_util.as_local(dt_util.utcnow())
     date = dt_util.parse_date(date_string)
     diff = date - now.date()
-    return (diff.days > 0)
+    return diff.days > 0
 
 
 async def async_setup(hass, config):
@@ -74,7 +69,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Set up the Scheduler switch devices. """
+    """Set up the Scheduler switch devices."""
 
     coordinator = hass.data[const.DOMAIN]["coordinator"]
 
@@ -148,9 +143,15 @@ class ScheduleEntity(ToggleEntity):
         self._tags = []
 
         self._listeners = [
-            async_dispatcher_connect(self.hass, const.EVENT_ITEM_UPDATED, self.async_item_updated),
-            async_dispatcher_connect(self.hass, const.EVENT_TIMER_UPDATED, self.async_timer_updated),
-            async_dispatcher_connect(self.hass, const.EVENT_TIMER_FINISHED, self.async_timer_finished)
+            async_dispatcher_connect(
+                self.hass, const.EVENT_ITEM_UPDATED, self.async_item_updated
+            ),
+            async_dispatcher_connect(
+                self.hass, const.EVENT_TIMER_UPDATED, self.async_timer_updated
+            ),
+            async_dispatcher_connect(
+                self.hass, const.EVENT_TIMER_FINISHED, self.async_timer_finished
+            ),
         ]
 
     @callback
@@ -163,9 +164,15 @@ class ScheduleEntity(ToggleEntity):
         self.schedule = store.async_get_schedule(self.schedule_id)
         self._tags = self.coordinator.async_get_tags_for_schedule(self.schedule_id)
 
-        if self.schedule[const.ATTR_ENABLED] and self._state in [STATE_OFF, const.STATE_COMPLETED]:
+        if self.schedule[const.ATTR_ENABLED] and self._state in [
+            STATE_OFF,
+            const.STATE_COMPLETED,
+        ]:
             self._state = STATE_ON
-        elif not self.schedule[const.ATTR_ENABLED] and self._state not in [STATE_OFF, const.STATE_COMPLETED]:
+        elif not self.schedule[const.ATTR_ENABLED] and self._state not in [
+            STATE_OFF,
+            const.STATE_COMPLETED,
+        ]:
             self._state = STATE_OFF
 
         self._init = True  # trigger actions of starting timeslot
@@ -184,33 +191,45 @@ class ScheduleEntity(ToggleEntity):
 
         self._next_entries = self._timer_handler.slot_queue
         self._timestamps = list(
-            map(lambda x: datetime.datetime.isoformat(x), self._timer_handler.timestamps)
+            map(
+                lambda x: datetime.datetime.isoformat(x), self._timer_handler.timestamps
+            )
         )
         if self._current_slot is not None and self._timer_handler.current_slot is None:
             # we are leaving a timeslot, stop execution of actions
             if (
-                len(self.schedule[const.ATTR_TIMESLOTS]) == 1 and
-                self.schedule[const.ATTR_REPEAT_TYPE] == const.REPEAT_TYPE_REPEAT
+                len(self.schedule[const.ATTR_TIMESLOTS]) == 1
+                and self.schedule[const.ATTR_REPEAT_TYPE] == const.REPEAT_TYPE_REPEAT
             ):
                 # allow unavailable entities to restore within 9 mins (+1 minute of triggered duration)
                 await self._action_handler.async_empty_queue(restore_time=9)
             else:
                 await self._action_handler.async_empty_queue()
 
-            if (
-                self._current_slot == (len(self.schedule[const.ATTR_TIMESLOTS]) - 1) and
-                (not self.schedule[const.ATTR_END_DATE] or not date_in_future(self.schedule[const.ATTR_END_DATE]))
+            if self._current_slot == (
+                len(self.schedule[const.ATTR_TIMESLOTS]) - 1
+            ) and (
+                not self.schedule[const.ATTR_END_DATE]
+                or not date_in_future(self.schedule[const.ATTR_END_DATE])
             ):
                 # last timeslot has ended
                 # in case period is assigned, the end date must have been reached as well
 
                 if self.schedule[const.ATTR_REPEAT_TYPE] == const.REPEAT_TYPE_PAUSE:
-                    _LOGGER.debug("Scheduler {} has finished the last timeslot, turning off".format(self.schedule_id))
+                    _LOGGER.debug(
+                        "Scheduler {} has finished the last timeslot, turning off".format(
+                            self.schedule_id
+                        )
+                    )
                     await self.async_turn_off()
                     self._state = const.STATE_COMPLETED
 
                 elif self.schedule[const.ATTR_REPEAT_TYPE] == const.REPEAT_TYPE_SINGLE:
-                    _LOGGER.debug("Scheduler {} has finished the last timeslot, removing".format(self.schedule_id))
+                    _LOGGER.debug(
+                        "Scheduler {} has finished the last timeslot, removing".format(
+                            self.schedule_id
+                        )
+                    )
                     await self.coordinator.async_delete_schedule(self.schedule_id)
 
         self._current_slot = self._timer_handler.current_slot
@@ -223,13 +242,17 @@ class ScheduleEntity(ToggleEntity):
                 if (self._timer_handler._next_trigger - now).total_seconds() < 0:
                     self._state = const.STATE_COMPLETED
                 else:
-                    self._state = STATE_ON if self.schedule[const.ATTR_ENABLED] else STATE_OFF
+                    self._state = (
+                        STATE_ON if self.schedule[const.ATTR_ENABLED] else STATE_OFF
+                    )
 
         if self._init:
             # initial startpoint for timer calculated, fire actions if currently overlapping with timeslot
             if self._current_slot is not None and self._state != STATE_OFF:
                 _LOGGER.debug(
-                    "Schedule {} is starting in a timeslot, proceed with actions".format(self.schedule_id)
+                    "Schedule {} is starting in a timeslot, proceed with actions".format(
+                        self.schedule_id
+                    )
                 )
                 await self._action_handler.async_queue_actions(
                     self.schedule[const.ATTR_TIMESLOTS][self._current_slot]
@@ -253,7 +276,9 @@ class ScheduleEntity(ToggleEntity):
             self._current_slot = self._timer_handler.current_slot
             if self._current_slot is not None:
                 _LOGGER.debug(
-                    "Schedule {} is triggered, proceed with actions".format(self.schedule_id)
+                    "Schedule {} is triggered, proceed with actions".format(
+                        self.schedule_id
+                    )
                 )
                 await self._action_handler.async_queue_actions(
                     self.schedule[const.ATTR_TIMESLOTS][self._current_slot]
@@ -267,11 +292,7 @@ class ScheduleEntity(ToggleEntity):
             await self._timer_handler.async_start_timer()
 
         # keep the entity in triggered state for 1 minute, then restart the timer
-        self._timer = async_call_later(
-            self.hass,
-            60,
-            async_trigger_finished
-        )
+        self._timer = async_call_later(self.hass, 60, async_trigger_finished)
         if self._state == STATE_ON:
             self._state = STATE_TRIGGERED
 
@@ -364,7 +385,9 @@ class ScheduleEntity(ToggleEntity):
             "actions": self.actions,
             "current_slot": self._current_slot,
             "next_slot": self._next_entries[0] if len(self._next_entries) else None,
-            "next_trigger": self._timestamps[self._next_entries[0]] if len(self._next_entries) else None,
+            "next_trigger": self._timestamps[self._next_entries[0]]
+            if len(self._next_entries)
+            else None,
             "tags": self.tags,
         }
 
@@ -413,6 +436,7 @@ class ScheduleEntity(ToggleEntity):
 
     async def async_turn_off(self):
         """turn off a schedule"""
+        _LOGGER.debug("async_turn_off")
         if self.schedule[const.ATTR_ENABLED]:
             await self.coordinator.async_edit_schedule(
                 self.schedule_id, {const.ATTR_ENABLED: False}
@@ -470,14 +494,19 @@ class ScheduleEntity(ToggleEntity):
 
         (slot, ts) = self._timer_handler.current_timeslot(now)
 
-        if slot is None and time is None and len(self.schedule[const.ATTR_TIMESLOTS]) == 1:
+        if (
+            slot is None
+            and time is None
+            and len(self.schedule[const.ATTR_TIMESLOTS]) == 1
+        ):
             slot = 0
 
         if slot is None:
-            _LOGGER.info("Schedule {} has no active timeslot at {}".format(
-                self.entity_id,
-                now.strftime("%H:%M:%S")
-            ))
+            _LOGGER.info(
+                "Schedule {} has no active timeslot at {}".format(
+                    self.entity_id, now.strftime("%H:%M:%S")
+                )
+            )
             return
 
         _LOGGER.debug(
@@ -521,7 +550,9 @@ class MigrationScheduleEntity(RestoreEntity, ToggleEntity):
             if "entries" in state.attributes:
                 entry = migrate_old_entity(state.attributes, self.id)
                 entry[const.ATTR_ENABLED] = state.state != STATE_OFF
-                _LOGGER.info("Migrating schedule {}".format(entry[const.ATTR_SCHEDULE_ID]))
+                _LOGGER.info(
+                    "Migrating schedule {}".format(entry[const.ATTR_SCHEDULE_ID])
+                )
                 self.coordinator.async_create_schedule(entry)
 
         await self.async_remove()

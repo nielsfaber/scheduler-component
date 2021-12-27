@@ -4,7 +4,7 @@ from collections import OrderedDict
 from typing import MutableMapping, cast
 
 import attr
-from homeassistant.core import (callback, HomeAssistant)
+from homeassistant.core import callback, HomeAssistant
 from homeassistant.loader import bind_hass
 from homeassistant.const import (
     ATTR_NAME,
@@ -98,16 +98,22 @@ class MigratableStore(Store):
     async def _async_migrate_func(self, old_version, data: dict):
 
         if old_version < 2:
-            data["schedules"] = [
-                {
-                    **entry,
-                    const.ATTR_START_DATE: entry[const.ATTR_START_DATE]
-                    if const.ATTR_START_DATE in entry else None,
-                    const.ATTR_END_DATE: entry[const.ATTR_END_DATE]
-                    if const.ATTR_END_DATE in entry else None,
-                }
-                for entry in data["schedules"]
-            ] if "schedules" in data else []
+            data["schedules"] = (
+                [
+                    {
+                        **entry,
+                        const.ATTR_START_DATE: entry[const.ATTR_START_DATE]
+                        if const.ATTR_START_DATE in entry
+                        else None,
+                        const.ATTR_END_DATE: entry[const.ATTR_END_DATE]
+                        if const.ATTR_END_DATE in entry
+                        else None,
+                    }
+                    for entry in data["schedules"]
+                ]
+                if "schedules" in data
+                else []
+            )
         return data
 
 
@@ -199,9 +205,7 @@ class ScheduleStorage:
                 item[const.ATTR_TIMESLOTS].append(timeslot)
             store_data["schedules"].append(item)
 
-        store_data["tags"] = [
-            attr.asdict(entry) for entry in self.tags.values()
-        ]
+        store_data["tags"] = [attr.asdict(entry) for entry in self.tags.values()]
 
         return store_data
 
