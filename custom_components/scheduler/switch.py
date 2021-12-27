@@ -32,7 +32,6 @@ from homeassistant.helpers.dispatcher import (
     async_dispatcher_connect,
 )
 from . import const
-from .migrate import migrate_old_entity
 from .store import ScheduleEntry, async_get_registry
 from .timer import TimerHandler
 from .actions import ActionHandler
@@ -515,52 +514,3 @@ class ScheduleEntity(ToggleEntity):
         await self._action_handler.async_queue_actions(
             self.schedule[const.ATTR_TIMESLOTS][slot]
         )
-
-
-class MigrationScheduleEntity(RestoreEntity, ToggleEntity):
-    """Defines a base schedule entity."""
-
-    def __init__(self, coordinator, entity_id: str) -> None:
-        self.coordinator = coordinator
-        self.entity_id = "{}.{}".format(PLATFORM, entity_id)
-        self.id = entity_id
-
-    @property
-    def is_on(self):
-        """Return true if entity is on."""
-        return False
-
-    @property
-    def available(self):
-        """Return True if entity is available."""
-        return False
-
-    @property
-    def unique_id(self):
-        """Return a unique ID to use for this entity."""
-        return f"{self.id}"
-
-    async def async_added_to_hass(self):
-        """Connect to dispatcher listening for entity data notifications."""
-        await super().async_added_to_hass()
-
-        state = await self.async_get_last_state()
-
-        if state is not None and state.attributes:
-            if "entries" in state.attributes:
-                entry = migrate_old_entity(state.attributes, self.id)
-                entry[const.ATTR_ENABLED] = state.state != STATE_OFF
-                _LOGGER.info(
-                    "Migrating schedule {}".format(entry[const.ATTR_SCHEDULE_ID])
-                )
-                self.coordinator.async_create_schedule(entry)
-
-        await self.async_remove()
-
-    async def async_will_remove_from_hass(self):
-        """Connect to dispatcher listening for entity data notifications."""
-
-        await super().async_will_remove_from_hass()
-
-        entity_registry = await self.hass.helpers.entity_registry.async_get_registry()
-        entity_registry.async_remove(self.entity_id)
