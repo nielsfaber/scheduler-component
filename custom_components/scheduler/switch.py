@@ -436,8 +436,8 @@ class ScheduleEntity(ToggleEntity):
 
     async def async_turn_off(self):
         """turn off a schedule"""
-        _LOGGER.debug("async_turn_off")
         if self.schedule[const.ATTR_ENABLED]:
+            await self._action_handler.async_empty_queue()
             await self.coordinator.async_edit_schedule(
                 self.schedule_id, {const.ATTR_ENABLED: False}
             )
