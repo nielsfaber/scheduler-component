@@ -97,15 +97,20 @@ def parse_schedule_data(data: dict):
 class MigratableStore(Store):
     async def _async_migrate_func(self, old_version, data: dict):
 
-        def has_unequal_number_conditions(entry):
-            first_entry_conditions = entry[const.ATTR_TIMESLOTS][0]["conditions"]
-            return (
-                len(entry[const.ATTR_TIMESLOTS]) > 1 and not
-                all(
-                    len(el["conditions"]) == len(first_entry_conditions)
-                    for el in entry[const.ATTR_TIMESLOTS]
-                )
-            )
+        def remove_unequal_number_conditions(timeslots):
+            """ensure all timeslots have the same number of conditions"""
+            if len(timeslots) > 1 and not all(
+                len(el["conditions"]) == len(timeslots[0]["conditions"])
+                for el in timeslots
+            ):
+                return [
+                    {
+                        **slot,
+                        "conditions": timeslots[0]["conditions"]
+                    }
+                    for slot in timeslots
+                ]
+            return timeslots
 
         if old_version < 2:
             data["schedules"] = (
@@ -129,15 +134,7 @@ class MigratableStore(Store):
                 [
                     {
                         **entry,
-                        const.ATTR_TIMESLOTS: [
-                            {
-                                **slot,
-                                "conditions": entry[const.ATTR_TIMESLOTS][0]["conditions"]
-                            }
-                            for slot in entry[const.ATTR_TIMESLOTS]
-                            if has_unequal_number_conditions(entry)
-                        ]
-
+                        const.ATTR_TIMESLOTS: remove_unequal_number_conditions(entry[const.ATTR_TIMESLOTS])
                     }
                     for entry in data["schedules"]
                 ]
