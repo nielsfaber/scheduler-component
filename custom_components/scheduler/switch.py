@@ -20,13 +20,10 @@ from homeassistant.const import (
     ATTR_SERVICE_DATA,
 )
 from homeassistant.core import callback
-from homeassistant.helpers.device_registry import async_entries_for_config_entry
 from homeassistant.helpers.entity import ToggleEntity
-from homeassistant.helpers.entity_registry import async_entries_for_device
 from homeassistant.helpers.event import (
     async_call_later,
 )
-from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import slugify
 from homeassistant.helpers.dispatcher import (
     async_dispatcher_connect,
@@ -67,32 +64,10 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     return True
 
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
+async def async_setup_entry(hass, _config_entry, async_add_entities):
     """Set up the Scheduler switch devices."""
 
     coordinator = hass.data[const.DOMAIN]["coordinator"]
-
-    if (
-        "migrate_entities" in config_entry.data
-        and config_entry.data["migrate_entities"]
-    ):
-        # perform one-time migration of old persistent entities to the store
-        entities = []
-
-        device_registry = await hass.helpers.device_registry.async_get_registry()
-        devices = async_entries_for_config_entry(device_registry, config_entry.entry_id)
-        device = devices[0]
-
-        entity_registry = await hass.helpers.entity_registry.async_get_registry()
-        for entry in async_entries_for_device(entity_registry, device.id):
-
-            entities.append(MigrationScheduleEntity(coordinator, entry.unique_id))
-
-        async_add_entities(entities)
-        hass.config_entries.async_update_entry(config_entry, data={})
-        _LOGGER.warning(
-            "Migration of schedule entities in progress. Please restart HA to complete it."
-        )
 
     @callback
     def async_add_entity(schedule: ScheduleEntry):

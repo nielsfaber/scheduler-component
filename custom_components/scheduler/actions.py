@@ -185,7 +185,7 @@ def validate_condition(hass: HomeAssistant, condition: dict):
 
 def action_has_effect(action: dict, hass: HomeAssistant):
     """check if action has an effect on the entity"""
-    if not ATTR_ENTITY_ID in action:
+    if ATTR_ENTITY_ID not in action:
         return True
 
     domain = action[CONF_SERVICE].split(".").pop(0)
