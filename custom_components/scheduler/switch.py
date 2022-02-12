@@ -18,6 +18,7 @@ from homeassistant.const import (
     ATTR_TIME,
     CONF_SERVICE,
     ATTR_SERVICE_DATA,
+    CONF_SERVICE_DATA
 )
 from homeassistant.core import callback
 from homeassistant.helpers.entity import ToggleEntity
@@ -319,32 +320,44 @@ class ScheduleEntity(ToggleEntity):
         return self.schedule[const.ATTR_WEEKDAYS] if self.schedule else None
 
     @property
-    def actions(self):
-        actions = []
+    def entities(self):
+        entities = []
         if not self.schedule:
             return
         for timeslot in self.schedule[const.ATTR_TIMESLOTS]:
             for action in timeslot[const.ATTR_ACTIONS]:
-                my_action = {
-                    CONF_SERVICE: action[CONF_SERVICE],
-                }
-                if action[ATTR_ENTITY_ID]:
-                    my_action[ATTR_ENTITY_ID] = action[ATTR_ENTITY_ID]
-                if action[ATTR_SERVICE_DATA]:
-                    my_action[ATTR_SERVICE_DATA] = action[ATTR_SERVICE_DATA]
-                if my_action not in actions:
-                    actions.append(my_action)
+                if action[ATTR_ENTITY_ID] and action[ATTR_ENTITY_ID] not in entities:
+                    entities.append(action[ATTR_ENTITY_ID])
 
-        return actions
+        return entities
 
     @property
-    def times(self):
-        times = []
+    def actions(self):
+        if not self.schedule:
+            return
+        return [
+            {
+                CONF_SERVICE: timeslot["actions"][0][CONF_SERVICE],
+            }
+            if not timeslot["actions"][0][ATTR_SERVICE_DATA]
+            else {
+                CONF_SERVICE: timeslot["actions"][0][CONF_SERVICE],
+                CONF_SERVICE_DATA: timeslot["actions"][0][ATTR_SERVICE_DATA],
+            }
+            for timeslot in self.schedule[const.ATTR_TIMESLOTS]
+        ]
+
+    @property
+    def timeslots(self):
+        timeslots = []
         if not self.schedule:
             return
         for timeslot in self.schedule[const.ATTR_TIMESLOTS]:
-            times.append(timeslot["start"])
-        return times
+            if timeslot[const.ATTR_STOP]:
+                timeslots.append("{} - {}".format(timeslot[const.ATTR_START], timeslot[const.ATTR_STOP]))
+            else:
+                timeslots.append(timeslot[const.ATTR_START])
+        return timeslots
 
     @property
     def tags(self):
@@ -355,7 +368,8 @@ class ScheduleEntity(ToggleEntity):
         """Return the data of the entity."""
         output = {
             "weekdays": self.weekdays,
-            "times": self.times,
+            "timeslots": self.timeslots,
+            "entities": self.entities,
             "actions": self.actions,
             "current_slot": self._current_slot,
             "next_slot": self._next_entries[0] if len(self._next_entries) else None,
