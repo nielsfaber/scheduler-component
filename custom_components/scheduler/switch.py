@@ -316,6 +316,11 @@ class ScheduleEntity(ToggleEntity):
         return "mdi:calendar-clock"
 
     @property
+    def entity_category(self):
+        """Return entity_category."""
+        return "config"
+
+    @property
     def weekdays(self):
         return self.schedule[const.ATTR_WEEKDAYS] if self.schedule else None
 
