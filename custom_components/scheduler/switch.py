@@ -316,8 +316,8 @@ class ScheduleEntity(ToggleEntity):
         return "mdi:calendar-clock"
 
     @property
-    def entity_category(self):
-        """Return entity_category."""
+    def EntityCategory(self):
+        """Return EntityCategory."""
         return EntityCategory.CONFIG
 
     @property
