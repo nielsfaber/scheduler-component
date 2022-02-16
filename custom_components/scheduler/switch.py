@@ -21,7 +21,7 @@ from homeassistant.const import (
     CONF_SERVICE_DATA
 )
 from homeassistant.core import callback
-from homeassistant.helpers.entity import ToggleEntity
+from homeassistant.helpers.entity import ToggleEntity, EntityCategory
 from homeassistant.helpers.event import (
     async_call_later,
 )
@@ -318,7 +318,7 @@ class ScheduleEntity(ToggleEntity):
     @property
     def entity_category(self):
         """Return entity_category."""
-        return "config"
+        return EntityCategory.CONFIG
 
     @property
     def weekdays(self):
