@@ -104,7 +104,7 @@ def parse_service_call(data: dict):
         return [service_call]
 
 
-def entity_is_available(hass: HomeAssistant, entity):
+def entity_is_available(hass: HomeAssistant, entity, is_target_entity=False):
     """evaluate whether an entity is ready for targeting"""
     state = hass.states.get(entity)
     if state is None:
@@ -113,13 +113,16 @@ def entity_is_available(hass: HomeAssistant, entity):
         return False
     elif state.state != STATE_UNKNOWN:
         return True
-    else:
+    elif is_target_entity:
         # only reject unknown state when scheduler is initializing
         coordinator = hass.data["scheduler"]["coordinator"]
         if coordinator.state == const.STATE_INIT:
             return False
         else:
             return True
+    else:
+        #  for condition entities the unknown state is not allowed
+        return False
 
 
 def service_is_available(hass: HomeAssistant, service: str):
@@ -133,7 +136,8 @@ def service_is_available(hass: HomeAssistant, service: str):
 
 def validate_condition(hass: HomeAssistant, condition: dict):
     """Validate a condition against the current state"""
-    if not entity_is_available(hass, condition[ATTR_ENTITY_ID]):
+
+    if not entity_is_available(hass, condition[ATTR_ENTITY_ID], True):
         return False
 
     state = hass.states.get(condition[ATTR_ENTITY_ID])
@@ -156,12 +160,12 @@ def validate_condition(hass: HomeAssistant, condition: dict):
         try:
             actual = int(float(actual))
         except (ValueError, TypeError):
-            pass
+            return False
     elif isinstance(required, float):
         try:
             actual = float(actual)
         except (ValueError, TypeError):
-            pass
+            return False
     elif isinstance(required, str):
         actual = str(actual)
 
@@ -417,7 +421,7 @@ class ActionQueue:
         # check entities
         watched_entities = list(set(self._condition_entities + self._action_entities))
         failed_entity = next(
-            (x for x in watched_entities if not entity_is_available(self.hass, x)), None
+            (x for x in watched_entities if not entity_is_available(self.hass, x, x in self._action_entities)), None
         )
         if failed_entity:
             _LOGGER.debug(
