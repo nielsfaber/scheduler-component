@@ -125,6 +125,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             raise vol.Invalid("Entity not found: {}".format(service.data[const.ATTR_ENTITY_ID]))
         else:
             data = store.async_get_schedule(match)
+            tags = coordinator.async_get_tags_for_schedule(data[const.ATTR_SCHEDULE_ID])
+            if tags:
+                data[const.ATTR_TAGS] = tags
             del data[const.ATTR_SCHEDULE_ID]
             if ATTR_NAME in service.data:
                 data[ATTR_NAME] = service.data[ATTR_NAME].strip()
