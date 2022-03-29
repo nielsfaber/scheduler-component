@@ -229,7 +229,7 @@ class TimerHandler:
                 return
 
             @callback
-            async def async_workday_updated(entity, old_state, new_state):
+            async def async_workday_updated():
                 """the workday sensor was updated"""
                 [current_slot, timestamp_end] = self.current_timeslot()
                 [next_slot, timestamp_next] = self.next_timeslot()
@@ -246,8 +246,8 @@ class TimerHandler:
                         # only reschedule if the difference is at least a minute
                         await self.async_start_timer()
 
-            self._workday_tracker = async_track_state_change(
-                self.hass, const.WORKDAY_ENTITY, async_workday_updated
+            self._workday_tracker = async_dispatcher_connect(
+                self.hass, const.EVENT_WORKDAY_SENSOR_UPDATED, async_workday_updated
             )
         else:
             # clear existing tracker

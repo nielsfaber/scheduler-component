@@ -1,7 +1,8 @@
 """The Scheduler Integration."""
 import logging
 import voluptuous as vol
-from datetime import timedelta
+import datetime
+import homeassistant.util.dt as dt_util
 
 from homeassistant.helpers import config_validation as cv
 from homeassistant.components.switch import DOMAIN as PLATFORM
@@ -21,13 +22,17 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.dispatcher import (
     async_dispatcher_send,
 )
-from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_state_change,
+    async_track_point_in_time,
+)
 
 from . import const
 from .store import async_get_registry
 from .websockets import async_register_websockets
+
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(seconds=30)
 
 
 async def async_setup(hass, config):
@@ -164,6 +169,8 @@ async def async_unload_entry(hass, entry):
             *[hass.config_entries.async_forward_entry_unload(entry, PLATFORM)]
         )
     )
+    coordinator = hass.data[const.DOMAIN]["coordinator"]
+    await coordinator.async_unload()
     return unload_ok
 
 
@@ -183,12 +190,16 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         self.hass = hass
         self.store = store
         self.state = const.STATE_INIT
+        self._workday_tracker = None
+        self._workday_timer = None
 
         super().__init__(hass, _LOGGER, name=const.DOMAIN)
 
         # wait for 10 seconds after HA startup to allow entities to be initialized
         @callback
         def handle_startup(_event):
+            hass.async_create_task(self.async_init_workday_sensor())
+
             @callback
             def async_timer_finished(_now):
                 self.state = const.STATE_READY
@@ -274,6 +285,11 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         """Update data via library."""
         return True
 
+    async def async_unload(self):
+        if self._workday_tracker:
+            self._workday_tracker()
+            self._workday_tracker = None
+
     async def async_delete_config(self):
         await self.store.async_delete()
 
@@ -319,3 +335,51 @@ class SchedulerCoordinator(DataUpdateCoordinator):
                     ATTR_NAME: tag_name,
                     const.ATTR_SCHEDULES: [schedule_id]
                 })
+
+    async def async_reset_workday_timer(self):
+        """the workday polling timer has finished"""
+
+        @callback
+        async def async_workday_timer_finished(_now):
+            """perform daily polling of the workday entity"""
+            _LOGGER.debug("Performing daily update of workday sensor")
+            await self.async_reset_workday_timer()
+            async_dispatcher_send(self.hass, const.EVENT_WORKDAY_SENSOR_UPDATED)
+
+        now = dt_util.as_local(dt_util.utcnow())
+        ts = dt_util.find_next_time_expression_time(
+            now, seconds=[0], minutes=[5], hours=[0]
+        )
+        today = now.date()
+        while ts.date() == today:
+            # ensure the timer is set for the next day
+            now = now + datetime.timedelta(days=1)
+            ts = dt_util.find_next_time_expression_time(
+                now, seconds=[0], minutes=[5], hours=[0]
+            )
+
+        if self._workday_timer:
+            self._workday_timer()
+
+        self._workday_timer = async_track_point_in_time(
+            self.hass, async_workday_timer_finished, ts
+        )
+
+    async def async_init_workday_sensor(self):
+        """watch for changes in the workday sensor"""
+
+        workday_entity = self.hass.states.get(const.WORKDAY_ENTITY)
+        if not workday_entity:
+            return None
+
+        @callback
+        async def async_workday_state_updated(entity, old_state, new_state):
+            """the workday sensor has been updated"""
+            _LOGGER.debug("Workday sensor has updated")
+            await self.async_reset_workday_timer()
+            async_dispatcher_send(self.hass, const.EVENT_WORKDAY_SENSOR_UPDATED)
+
+        self._workday_tracker = async_track_state_change(
+            self.hass, const.WORKDAY_ENTITY, async_workday_state_updated
+        )
+        await self.async_reset_workday_timer()
