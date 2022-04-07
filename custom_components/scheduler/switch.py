@@ -318,7 +318,7 @@ class ScheduleEntity(ToggleEntity):
     @property
     def EntityCategory(self):
         """Return EntityCategory."""
-        return EntityCategory.CONFIG
+        return EntityCategory(EntityCategory.CONFIG)
 
     @property
     def weekdays(self):
