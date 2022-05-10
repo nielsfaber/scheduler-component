@@ -386,7 +386,7 @@ class TimerHandler:
             elif self._end_date and days_until_date(self._end_date, ts) < 0:
                 # end date is in the past, jump to end date
                 time_delta = datetime.timedelta(
-                    days=days_until_date(self._end_date, ts)
+                    days=(days_until_date(self._end_date, ts) - 6)
                 )
 
             else:
