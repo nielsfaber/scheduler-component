@@ -146,7 +146,9 @@ class TimerHandler:
             if (timestamp - now).total_seconds() < 0:
                 self._timer = None
                 _LOGGER.debug(
-                    "Timer of {} is not set because it is in the past".format(self.id)
+                    "Timer of {} is not set because it is in the past ({})".format(
+                        self.id, timestamp
+                    )
                 )
             else:
                 self._timer = async_track_point_in_time(
@@ -313,7 +315,11 @@ class TimerHandler:
         return day in self._weekdays
 
     def calculate_timestamp(
-        self, time_str, now: datetime.datetime = None, iteration: int = 0
+        self,
+        time_str,
+        now: datetime.datetime = None,
+        iteration: int = 0,
+        reverse_direction: bool = False,
     ) -> datetime.datetime:
         """calculate the next occurence of a time string"""
         if time_str is None:
@@ -388,21 +394,26 @@ class TimerHandler:
                 time_delta = datetime.timedelta(
                     days=days_until_date(self._end_date, ts)
                 )
+                reverse_direction = True
 
             else:
                 # date restrictions are met
                 return ts
+        elif reverse_direction:
+            time_delta = datetime.timedelta(days=-1)
 
         # calculate next timestamp
         next_day = dt_util.find_next_time_expression_time(
             now + time_delta, [0], [0], [0]
         )
-        if iteration > 7:
+        if iteration > 15:
             _LOGGER.warning(
                 "failed to calculate next timeslot for schedule {}".format(self.id)
             )
             return None
-        return self.calculate_timestamp(time_str, next_day, iteration + 1)
+        return self.calculate_timestamp(
+            time_str, next_day, iteration + 1, reverse_direction
+        )
 
     def next_timeslot(self):
         """calculate the closest timeslot from now"""
