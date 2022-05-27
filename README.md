@@ -1,5 +1,5 @@
 # scheduler-component
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)
 ## Introduction
 This is a custom component for Home Assistant, that is used for controlling your existing devices based on time.
 It works nicely together with the [Lovelace scheduler card](https://github.com/nielsfaber/scheduler-card).
