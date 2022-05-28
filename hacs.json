@@ -1,6 +1,4 @@
 {
   "name": "Scheduler component",
-  "render_readme": "true",
-  "iot_class": ["Local Push"],
-  "domains": ["switch"]
+  "render_readme": true,
 }
