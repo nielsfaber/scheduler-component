@@ -15,9 +15,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, asyncio, CoreState, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.entity_registry import (
-    async_get_registry as get_entity_registry,
-)
+from homeassistant.helpers.entity_registry import async_get as get_entity_registry
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.dispatcher import (
     async_dispatcher_send,
@@ -263,7 +261,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         entity = self.hass.data[const.DOMAIN]["schedules"][schedule_id]
         if ATTR_NAME in data:
             # if the name has been changed, the entity ID must change hence the entity should be destroyed
-            entity_registry = await get_entity_registry(self.hass)
+            entity_registry = get_entity_registry(self.hass)
             entity_registry.async_remove(entity.entity_id)
             async_dispatcher_send(self.hass, const.EVENT_ITEM_CREATED, entry)
         else:
