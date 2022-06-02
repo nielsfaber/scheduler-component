@@ -18,7 +18,7 @@ from homeassistant.const import (
     ATTR_TIME,
     CONF_SERVICE,
     ATTR_SERVICE_DATA,
-    CONF_SERVICE_DATA
+    CONF_SERVICE_DATA,
 )
 from homeassistant.core import callback
 from homeassistant.helpers.entity import ToggleEntity, EntityCategory
@@ -316,7 +316,7 @@ class ScheduleEntity(ToggleEntity):
         return "mdi:calendar-clock"
 
     @property
-    def EntityCategory(self):
+    def entity_category(self):
         """Return EntityCategory."""
         return EntityCategory.CONFIG
 
@@ -359,7 +359,11 @@ class ScheduleEntity(ToggleEntity):
             return
         for timeslot in self.schedule[const.ATTR_TIMESLOTS]:
             if timeslot[const.ATTR_STOP]:
-                timeslots.append("{} - {}".format(timeslot[const.ATTR_START], timeslot[const.ATTR_STOP]))
+                timeslots.append(
+                    "{} - {}".format(
+                        timeslot[const.ATTR_START], timeslot[const.ATTR_STOP]
+                    )
+                )
             else:
                 timeslots.append(timeslot[const.ATTR_START])
         return timeslots

@@ -44,7 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     store = await async_get_registry(hass)
     coordinator = SchedulerCoordinator(hass, session, entry, store)
 
-    device_registry = await dr.async_get_registry(hass)
+    device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={(const.DOMAIN, coordinator.id)},
@@ -73,7 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         const.DOMAIN,
         const.SERVICE_ADD,
         service_create_schedule,
-        schema=const.ADD_SCHEDULE_SCHEMA
+        schema=const.ADD_SCHEDULE_SCHEMA,
     )
 
     async def async_service_edit_schedule(service):
@@ -83,7 +83,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 match = schedule_id
                 continue
         if not match:
-            raise vol.Invalid("Entity not found: {}".format(service.data[const.ATTR_ENTITY_ID]))
+            raise vol.Invalid(
+                "Entity not found: {}".format(service.data[const.ATTR_ENTITY_ID])
+            )
         else:
             data = dict(service.data)
             del data[const.ATTR_ENTITY_ID]
@@ -93,9 +95,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         const.DOMAIN,
         const.SERVICE_EDIT,
         async_service_edit_schedule,
-        schema=const.EDIT_SCHEDULE_SCHEMA.extend({
-            vol.Required(ATTR_ENTITY_ID): cv.string
-        })
+        schema=const.EDIT_SCHEDULE_SCHEMA.extend(
+            {vol.Required(ATTR_ENTITY_ID): cv.string}
+        ),
     )
 
     async def async_service_remove_schedule(service):
@@ -113,9 +115,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         const.DOMAIN,
         const.SERVICE_REMOVE,
         async_service_remove_schedule,
-        schema=vol.Schema({
-            vol.Required(ATTR_ENTITY_ID): cv.string
-        })
+        schema=vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.string}),
     )
 
     def service_copy_schedule(service):
@@ -125,7 +125,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 match = schedule_id
                 continue
         if not match:
-            raise vol.Invalid("Entity not found: {}".format(service.data[const.ATTR_ENTITY_ID]))
+            raise vol.Invalid(
+                "Entity not found: {}".format(service.data[const.ATTR_ENTITY_ID])
+            )
         else:
             data = store.async_get_schedule(match)
             tags = coordinator.async_get_tags_for_schedule(data[const.ATTR_SCHEDULE_ID])
@@ -140,10 +142,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         const.DOMAIN,
         const.SERVICE_COPY,
         service_copy_schedule,
-        schema=vol.Schema({
-            vol.Required(ATTR_ENTITY_ID): cv.string,
-            vol.Optional(ATTR_NAME): vol.Any(cv.string, None),
-        })
+        schema=vol.Schema(
+            {
+                vol.Required(ATTR_ENTITY_ID): cv.string,
+                vol.Optional(ATTR_NAME): vol.Any(cv.string, None),
+            }
+        ),
     )
 
     return True
@@ -272,7 +276,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         if schedule_id not in self.hass.data[const.DOMAIN]["schedules"]:
             return
         entity = self.hass.data[const.DOMAIN]["schedules"][schedule_id]
-        entity_registry = await get_entity_registry(self.hass)
+        entity_registry = get_entity_registry(self.hass)
         entity_registry.async_remove(entity.entity_id)
         self.store.async_delete_schedule(schedule_id)
         self.async_assign_tags_to_schedule(schedule_id, None)
@@ -313,9 +317,14 @@ class SchedulerCoordinator(DataUpdateCoordinator):
                 # remove old tag
                 el = self.store.async_get_tag(tag_name)
                 if len(el[const.ATTR_SCHEDULES]) > 1:
-                    self.store.async_update_tag(tag_name, {
-                        const.ATTR_SCHEDULES: [x for x in el[const.ATTR_SCHEDULES] if x != schedule_id]
-                    })
+                    self.store.async_update_tag(
+                        tag_name,
+                        {
+                            const.ATTR_SCHEDULES: [
+                                x for x in el[const.ATTR_SCHEDULES] if x != schedule_id
+                            ]
+                        },
+                    )
                 else:
                     self.store.async_delete_tag(tag_name)
             else:
@@ -325,14 +334,14 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             # assign new tag
             el = self.store.async_get_tag(tag_name)
             if el:
-                self.store.async_update_tag(tag_name, {
-                    const.ATTR_SCHEDULES: el[const.ATTR_SCHEDULES] + [schedule_id]
-                })
+                self.store.async_update_tag(
+                    tag_name,
+                    {const.ATTR_SCHEDULES: el[const.ATTR_SCHEDULES] + [schedule_id]},
+                )
             else:
-                self.store.async_create_tag({
-                    ATTR_NAME: tag_name,
-                    const.ATTR_SCHEDULES: [schedule_id]
-                })
+                self.store.async_create_tag(
+                    {ATTR_NAME: tag_name, const.ATTR_SCHEDULES: [schedule_id]}
+                )
 
     async def async_reset_workday_timer(self):
         """the workday polling timer has finished"""
