@@ -13,7 +13,7 @@ Any entity in HA can be used for making a scheduler entity, together with any se
 
 #### Option 1: Via HACS
 
-Make sure you have HACS installed. If you don't, run `curl -sfSL https://hacs.xyz/install | bash -` in HA.  
+Make sure you have HACS installed. If you don't, run `wget -O - https://get.hacs.xyz | bash -` in HA.  
 Choose Integrations under HACS. Click the '+' button on the bottom of the page, serch for "scheduler component", choose it, and click install in HACS.
 
 #### Option 2: Manual
