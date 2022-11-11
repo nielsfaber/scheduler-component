@@ -197,7 +197,7 @@ def action_has_effect(action: dict, hass: HomeAssistant):
     state = hass.states.get(action[ATTR_ENTITY_ID])
     current_state = state.state if state else None
 
-    if domain == CLIMATE_DOMAIN:
+    if domain == CLIMATE_DOMAIN and state:
         if service == SERVICE_SET_HVAC_MODE:
             return action[CONF_SERVICE_DATA][ATTR_HVAC_MODE] != current_state
         elif service == SERVICE_SET_TEMPERATURE:
@@ -207,16 +207,16 @@ def action_has_effect(action: dict, hass: HomeAssistant):
             ):
                 return True
             elif ATTR_TEMPERATURE in action[CONF_SERVICE_DATA]:
-                return float(state.attributes.get(ATTR_TEMPERATURE)) != float(
+                return float(state.attributes.get(ATTR_TEMPERATURE, 0)) != float(
                     action[CONF_SERVICE_DATA].get(ATTR_TEMPERATURE)
                 )
             elif (
                 ATTR_TARGET_TEMP_LOW in action[CONF_SERVICE_DATA]
                 and ATTR_TARGET_TEMP_HIGH in action[CONF_SERVICE_DATA]
             ):
-                return float(state.attributes.get(ATTR_TARGET_TEMP_LOW)) != float(
+                return float(state.attributes.get(ATTR_TARGET_TEMP_LOW, 0)) != float(
                     action[CONF_SERVICE_DATA].get(ATTR_TARGET_TEMP_LOW)
-                ) or float(state.attributes.get(ATTR_TARGET_TEMP_HIGH)) != float(
+                ) or float(state.attributes.get(ATTR_TARGET_TEMP_HIGH, 0)) != float(
                     action[CONF_SERVICE_DATA].get(ATTR_TARGET_TEMP_HIGH)
                 )
 
@@ -421,7 +421,12 @@ class ActionQueue:
         # check entities
         watched_entities = list(set(self._condition_entities + self._action_entities))
         failed_entity = next(
-            (x for x in watched_entities if not entity_is_available(self.hass, x, x in self._action_entities)), None
+            (
+                x
+                for x in watched_entities
+                if not entity_is_available(self.hass, x, x in self._action_entities)
+            ),
+            None,
         )
         if failed_entity:
             _LOGGER.debug(
