@@ -21,7 +21,7 @@ jobs:
           cd custom_components/scheduler/
           zip ../../scheduler.zip -r ./
 
-      - uses: gacts/upload-to-release@master
+      - uses: JasonEtco/upload-to-release@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
