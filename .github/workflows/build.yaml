@@ -25,5 +25,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          file: ./scheduler.zip
-          type: application/zip
+          args: ./scheduler.zip application/zip
