@@ -197,28 +197,29 @@ def action_has_effect(action: dict, hass: HomeAssistant):
     state = hass.states.get(action[ATTR_ENTITY_ID])
     current_state = state.state if state else None
 
-    if domain == CLIMATE_DOMAIN and state:
-        if service == SERVICE_SET_HVAC_MODE:
-            return action[CONF_SERVICE_DATA][ATTR_HVAC_MODE] != current_state
-        elif service == SERVICE_SET_TEMPERATURE:
-            if (
-                ATTR_HVAC_MODE in action[CONF_SERVICE_DATA]
-                and action[CONF_SERVICE_DATA].get(ATTR_HVAC_MODE) != current_state
-            ):
-                return True
-            elif ATTR_TEMPERATURE in action[CONF_SERVICE_DATA]:
-                return float(state.attributes.get(ATTR_TEMPERATURE, 0)) != float(
-                    action[CONF_SERVICE_DATA].get(ATTR_TEMPERATURE)
-                )
-            elif (
-                ATTR_TARGET_TEMP_LOW in action[CONF_SERVICE_DATA]
-                and ATTR_TARGET_TEMP_HIGH in action[CONF_SERVICE_DATA]
-            ):
-                return float(state.attributes.get(ATTR_TARGET_TEMP_LOW, 0)) != float(
-                    action[CONF_SERVICE_DATA].get(ATTR_TARGET_TEMP_LOW)
-                ) or float(state.attributes.get(ATTR_TARGET_TEMP_HIGH, 0)) != float(
-                    action[CONF_SERVICE_DATA].get(ATTR_TARGET_TEMP_HIGH)
-                )
+    if (
+        domain == CLIMATE_DOMAIN
+        and service in [SERVICE_SET_HVAC_MODE, SERVICE_SET_TEMPERATURE]
+        and state
+    ):
+        if (
+            ATTR_HVAC_MODE in action[CONF_SERVICE_DATA]
+            and action[CONF_SERVICE_DATA][ATTR_HVAC_MODE] != current_state
+        ):
+            return True
+        if ATTR_TEMPERATURE in action[CONF_SERVICE_DATA] and float(
+            state.attributes.get(ATTR_TEMPERATURE, 0) or 0
+        ) != float(action[CONF_SERVICE_DATA].get(ATTR_TEMPERATURE)):
+            return True
+        if ATTR_TARGET_TEMP_LOW in action[CONF_SERVICE_DATA] and float(
+            state.attributes.get(ATTR_TARGET_TEMP_LOW, 0) or 0
+        ) != float(action[CONF_SERVICE_DATA].get(ATTR_TARGET_TEMP_LOW)):
+            return True
+        if ATTR_TARGET_TEMP_HIGH in action[CONF_SERVICE_DATA] and float(
+            state.attributes.get(ATTR_TARGET_TEMP_HIGH, 0) or 0
+        ) != float(action[CONF_SERVICE_DATA].get(ATTR_TARGET_TEMP_HIGH)):
+            return True
+        return False
 
     return True
 
