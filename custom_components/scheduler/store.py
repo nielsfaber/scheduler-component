@@ -152,6 +152,7 @@ class ScheduleStorage:
         self.hass = hass
         self.schedules: MutableMapping[str, ScheduleEntry] = {}
         self.tags: MutableMapping[str, TagEntry] = {}
+        self.time_shutdown = None
         self._store = MigratableStore(hass, STORAGE_VERSION, STORAGE_KEY)
 
     async def async_load(self) -> None:
@@ -182,6 +183,9 @@ class ScheduleStorage:
                         name=entry[ATTR_NAME],
                         schedules=entry[const.ATTR_SCHEDULES],
                     )
+
+            if "time_shutdown" in data:
+                self.time_shutdown = data["time_shutdown"]
 
         self.schedules = schedules
         self.tags = tags
@@ -233,6 +237,9 @@ class ScheduleStorage:
             store_data["schedules"].append(item)
 
         store_data["tags"] = [attr.asdict(entry) for entry in self.tags.values()]
+
+        if self.time_shutdown:
+            store_data["time_shutdown"] = self.time_shutdown
 
         return store_data
 
@@ -338,6 +345,19 @@ class ScheduleStorage:
         self.async_schedule_save()
         return new
 
+    @callback
+    def async_get_time_shutdown(self) -> dict:
+        """Get the shutdown time and clear the stored value afterwards."""
+        res = self.time_shutdown
+        self.time_shutdown = None
+        self.async_schedule_save()
+        return res
+
+    @callback
+    async def async_set_time_shutdown(self, value: str):
+        """Set the shutdown time and store it immediately."""
+        self.time_shutdown = value
+        await self.async_save()
 
 @bind_hass
 async def async_get_registry(hass: HomeAssistant) -> ScheduleStorage:

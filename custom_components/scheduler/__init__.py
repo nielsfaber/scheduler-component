@@ -9,6 +9,7 @@ from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     EVENT_HOMEASSISTANT_STARTED,
+    EVENT_HOMEASSISTANT_STOP,
     ATTR_ENTITY_ID,
     ATTR_NAME,
 )
@@ -197,6 +198,14 @@ class SchedulerCoordinator(DataUpdateCoordinator):
 
         super().__init__(hass, _LOGGER, name=const.DOMAIN)
 
+        # detect time of prior shutdown to determine which schedules need to be triggered
+        time_shutdown = self.store.async_get_time_shutdown()
+        if time_shutdown:
+            self.time_shutdown = dt_util.as_local(datetime.datetime.fromisoformat(time_shutdown))
+            _LOGGER.debug("Scheduler detected a shutdown at {}.".format(self.time_shutdown))
+        else:
+            self.time_shutdown = None
+
         # wait for 10 seconds after HA startup to allow entities to be initialized
         @callback
         def handle_startup(_event):
@@ -213,6 +222,14 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             handle_startup(None)
         else:
             hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, handle_startup)
+
+        # store the current date+time when scheduler is being shutdown
+        @callback
+        async def async_handle_stopped(_event):
+            now = dt_util.utcnow().isoformat()
+            await self.store.async_set_time_shutdown(now)
+
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, async_handle_stopped)
 
     def async_get_schedule(self, schedule_id: str):
         """fetch a schedule (websocket API hook)"""
