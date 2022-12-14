@@ -14,7 +14,7 @@ Any entity in HA can be used for making a scheduler entity, together with any se
 #### Option 1: Via HACS
 
 Make sure you have HACS installed. If you don't, run `wget -O - https://get.hacs.xyz | bash -` in HA.  
-Choose Integrations under HACS. Click the '+' button on the bottom of the page, serch for "scheduler component", choose it, and click install in HACS.
+Choose Integrations under HACS. Click the '+' button on the bottom of the page, search for "scheduler component", choose it, and click install in HACS.
 
 #### Option 2: Manual
 Clone this repository or download the source code as a zip file and add/merge the `custom_components/` folder with its contents in your configuration directory.
@@ -27,7 +27,7 @@ In order for the newly added integration to be loaded, HA needs to be restarted.
 In HA, go to Configuration > Integrations.
 In the bottom right corner, click on the big button with a '+'.
 
-If the component is properly installed, you should be able to find the 'Scheduler integration' in the list. You might need to clear you browser cache for the integration to show up.
+If the component is properly installed, you should be able to find 'Scheduler' in the list. You might need to clear you browser cache for the integration to show up.
 
 
 Select it, and the scheduler integration is ready for use.
