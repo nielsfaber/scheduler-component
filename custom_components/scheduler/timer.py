@@ -385,11 +385,10 @@ class TimerHandler:
 
             if self._start_date and days_until_date(self._start_date, ts) > 0:
                 # start date is in the future, jump to start date
-
                 end_of_day = ts.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
-                time_delta = datetime.timedelta(
-                    days=days_until_date(self._start_date, end_of_day)
-                )
+                days_delta = days_until_date(self._start_date, end_of_day)
+                if days_delta:
+                    time_delta = datetime.timedelta(days=days_delta)
 
             elif self._end_date and days_until_date(self._end_date, ts) < 0:
                 # end date is in the past, jump to end date
