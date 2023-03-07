@@ -167,7 +167,8 @@ def validate_condition(hass: HomeAssistant, condition: dict):
         except (ValueError, TypeError):
             return False
     elif isinstance(required, str):
-        actual = str(actual)
+        actual = str(actual).lower()
+        required = required.lower()
 
     if condition[const.ATTR_MATCH_TYPE] == const.MATCH_TYPE_EQUAL:
         result = actual == required
