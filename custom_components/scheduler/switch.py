@@ -155,7 +155,7 @@ class ScheduleEntity(ToggleEntity):
         if self.hass is None:
             return
 
-        await self.async_update_ha_state()
+        self.async_write_ha_state()
         self.hass.bus.async_fire(const.EVENT)
 
     @callback
@@ -254,7 +254,7 @@ class ScheduleEntity(ToggleEntity):
         if self.hass is None:
             return
 
-        await self.async_update_ha_state()
+        self.async_write_ha_state()
         self.hass.bus.async_fire(const.EVENT)
 
     @callback
@@ -288,7 +288,7 @@ class ScheduleEntity(ToggleEntity):
         if self._state == STATE_ON:
             self._state = STATE_TRIGGERED
 
-        await self.async_update_ha_state()
+        self.async_write_ha_state()
         self.hass.bus.async_fire(const.EVENT)
 
     async def async_cancel_timer(self):
@@ -497,7 +497,7 @@ class ScheduleEntity(ToggleEntity):
         await self._action_handler.async_empty_queue()
         await self._timer_handler.async_unload()
 
-        await self.async_update_ha_state()
+        self.async_write_ha_state()
 
     async def async_service_run_action(self, time=None):
         """Manually trigger the execution of the actions of a timeslot"""
