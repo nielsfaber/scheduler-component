@@ -13,6 +13,18 @@ from .store import ScheduleEntry
 
 _LOGGER = logging.getLogger(__name__)
 
+class SchedulesListView(HomeAssistantView):
+    """Login to Home Assistant cloud."""
+
+    url = "/api/{}/list".format(const.DOMAIN)
+    name = "api:{}:list".format(const.DOMAIN)
+
+    async def get(self, request):
+        hass = request.app["hass"]
+        coordinator = hass.data[const.DOMAIN]["coordinator"]
+        schedules = coordinator.async_get_schedules()
+        return self.json(schedules)
+
 
 class SchedulesAddView(HomeAssistantView):
     """Login to Home Assistant cloud."""
