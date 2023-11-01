@@ -229,6 +229,7 @@ async def async_register_websockets(hass):
     hass.http.register_view(SchedulesAddView)
     hass.http.register_view(SchedulesEditView)
     hass.http.register_view(SchedulesRemoveView)
+    hass.http.register_view(SchedulesListView)
 
     # pass list of schedules to frontend
     hass.components.websocket_api.async_register_command(
