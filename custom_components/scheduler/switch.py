@@ -19,6 +19,7 @@ from homeassistant.const import (
     CONF_SERVICE,
     ATTR_SERVICE_DATA,
     CONF_SERVICE_DATA,
+    CONF_CONDITIONS,
 )
 from homeassistant.core import callback
 from homeassistant.helpers.entity import ToggleEntity, EntityCategory
@@ -39,7 +40,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SERVICE_RUN_ACTION = "run_action"
 RUN_ACTION_SCHEMA = vol.Schema(
-    {vol.Required(ATTR_ENTITY_ID): cv.entity_ids, vol.Optional(ATTR_TIME): cv.time}
+    {vol.Required(ATTR_ENTITY_ID): cv.entity_ids, vol.Optional(ATTR_TIME): cv.time, vol.Optional(const.ATTR_SKIP_CONDITIONS): cv.boolean}
 )
 
 
@@ -499,7 +500,7 @@ class ScheduleEntity(ToggleEntity):
 
         self.async_write_ha_state()
 
-    async def async_service_run_action(self, time=None):
+    async def async_service_run_action(self, time=None, skip_conditions=False):
         """Manually trigger the execution of the actions of a timeslot"""
 
         now = dt_util.as_local(dt_util.utcnow())
@@ -523,9 +524,14 @@ class ScheduleEntity(ToggleEntity):
             )
             return
 
+        schedule = dict(self.schedule[const.ATTR_TIMESLOTS][slot])
+        if skip_conditions:
+            schedule[CONF_CONDITIONS] = []
+
         _LOGGER.debug(
-            "Executing actions for {}, timeslot {}".format(self.entity_id, slot)
+            "Executing actions for {}, timeslot {}, skip_conditions {}".format(self.entity_id, slot, skip_conditions)
         )
+
         await self._action_handler.async_queue_actions(
-            self.schedule[const.ATTR_TIMESLOTS][slot]
+            schedule
         )

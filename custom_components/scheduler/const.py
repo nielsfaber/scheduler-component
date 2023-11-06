@@ -27,6 +27,7 @@ DAY_TYPE_WEEKEND = "weekend"
 
 WORKDAY_ENTITY = "binary_sensor.workday_sensor"
 
+ATTR_SKIP_CONDITIONS = "skip_conditions"
 ATTR_CONDITION_TYPE = "condition_type"
 CONDITION_TYPE_AND = "and"
 CONDITION_TYPE_OR = "or"

@@ -18,6 +18,12 @@ run_action:
       required: false
       selector:
         time:
+    skip_conditions:
+      name: Skip Conditions
+      description: Whether the conditions of the schedule should be skipped or not
+      required: false
+      selector:
+        boolean:
 
 remove:
   name: Remove
