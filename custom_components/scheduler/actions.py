@@ -237,7 +237,7 @@ class ActionHandler:
             self.hass, "action_queue_finished", self.async_cleanup_queues
         )
 
-    async def async_queue_actions(self, data: ScheduleEntry):
+    async def async_queue_actions(self, data: ScheduleEntry, skip_initial_execution = False):
         """add new actions to queue"""
         await self.async_empty_queue()
 
@@ -258,7 +258,7 @@ class ActionHandler:
             self._queues[entity].add_action(action)
 
         for queue in self._queues.values():
-            await queue.async_start()
+            await queue.async_start(skip_initial_execution)
 
     async def async_cleanup_queues(self, id: str = None):
         """remove all objects from queue which have no remaining tasks"""
@@ -351,7 +351,7 @@ class ActionQueue:
 
         self._queue.append(action)
 
-    async def async_start(self):
+    async def async_start(self, skip_initial_execution):
         """start execution of the actions in the queue"""
 
         @callback
@@ -380,15 +380,19 @@ class ActionQueue:
                 )
             )
 
-        await self.async_process_queue()
 
-        # trigger the queue once when HA has restarted
-        if self.hass.state != CoreState.running:
-            self._listeners.append(
-                async_dispatcher_connect(
-                    self.hass, const.EVENT_STARTED, self.async_process_queue
+        if not skip_initial_execution:
+            await self.async_process_queue()
+
+            # trigger the queue once when HA has restarted
+            if self.hass.state != CoreState.running:
+                self._listeners.append(
+                    async_dispatcher_connect(
+                        self.hass, const.EVENT_STARTED, self.async_process_queue
+                    )
                 )
-            )
+        else:
+            self._wait_for_available = False
 
     async def async_clear(self):
         """clear action queue object"""
