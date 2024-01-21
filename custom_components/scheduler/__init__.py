@@ -151,6 +151,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         ),
     )
 
+    async def async_service_disable_all(service):
+        await coordinator.async_disable_all_schedules()
+
+    hass.services.async_register(
+        const.DOMAIN,
+        const.SERVICE_DISABLE_ALL,
+        async_service_disable_all
+    )
+
+    async def async_service_enable_all(service):
+        await coordinator.async_enable_all_schedules()
+
+    hass.services.async_register(
+        const.DOMAIN,
+        const.SERVICE_ENABLE_ALL,
+        async_service_enable_all
+    )
+
     return True
 
 
@@ -407,3 +425,13 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             self.hass, const.WORKDAY_ENTITY, async_workday_state_updated
         )
         await self.async_reset_workday_timer()
+
+    async def async_enable_all_schedules(self):
+        """enables all schedules"""
+        for schedule in self.hass.data[const.DOMAIN]["schedules"].values():
+            await schedule.async_turn_on()
+
+    async def async_disable_all_schedules(self):
+        """disables all schedules"""
+        for schedule in self.hass.data[const.DOMAIN]["schedules"].values():
+            await schedule.async_turn_off()
