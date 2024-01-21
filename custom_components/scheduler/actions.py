@@ -355,6 +355,13 @@ class ActionQueue:
         async def async_entity_changed(entity, old_state, new_state):
             """check if actions can be processed"""
 
+            old_state = old_state.state if old_state else None
+            new_state = new_state.state if new_state else None
+
+            if old_state == new_state:
+                # no change
+                return
+
             if self.queue_busy:
                 return
 
