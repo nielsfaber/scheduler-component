@@ -14,6 +14,8 @@ from homeassistant.const import (
     STATE_UNKNOWN,
     STATE_UNAVAILABLE,
     CONF_CONDITIONS,
+    CONF_ATTRIBUTE,
+    CONF_STATE
 )
 from homeassistant.components.climate import (
     SERVICE_SET_TEMPERATURE,
@@ -40,6 +42,7 @@ from .store import ScheduleEntry
 _LOGGER = logging.getLogger(__name__)
 
 ACTION_WAIT = "wait"
+ACTION_WAIT_STATE_CHANGE = "wait_state_change"
 
 
 def parse_service_call(data: dict):
@@ -68,16 +71,6 @@ def parse_service_call(data: dict):
         # set temperature setpoint again for integrations which lose setpoint after switching hvac_mode
         service_call = [
             {
-                CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
-                ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
-                CONF_SERVICE_DATA: service_call[CONF_SERVICE_DATA],
-            },
-            {
-                CONF_SERVICE: ACTION_WAIT,
-                ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
-                CONF_SERVICE_DATA: {CONF_DELAY: 5},
-            },
-            {
                 CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE),
                 ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
                 CONF_SERVICE_DATA: {
@@ -85,9 +78,12 @@ def parse_service_call(data: dict):
                 },
             },
             {
-                CONF_SERVICE: ACTION_WAIT,
+                CONF_SERVICE: ACTION_WAIT_STATE_CHANGE,
                 ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
-                CONF_SERVICE_DATA: {CONF_DELAY: 5},
+                CONF_SERVICE_DATA: {
+                    CONF_DELAY: 50,
+                    CONF_STATE: service_call[CONF_SERVICE_DATA][ATTR_HVAC_MODE]
+                },
             },
             {
                 CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
@@ -127,7 +123,7 @@ def entity_is_available(hass: HomeAssistant, entity, is_target_entity=False):
 
 def service_is_available(hass: HomeAssistant, service: str):
     """evaluate whether a HA service is ready for targeting"""
-    if service == ACTION_WAIT:
+    if service in [ACTION_WAIT, ACTION_WAIT_STATE_CHANGE]:
         return True
     domain = service.split(".").pop(0)
     domain_service = service.split(".").pop(1)
@@ -326,6 +322,7 @@ class ActionQueue:
         self._action_entities = []
         self._condition_entities = []
         self._listeners = []
+        self._state_update_listener = None
         self._conditions = conditions
         self._condition_type = condition_type
         self._queue = []
@@ -402,6 +399,10 @@ class ActionQueue:
 
         while len(self._listeners):
             self._listeners.pop()()
+
+        if self._state_update_listener:
+            self._state_update_listener()
+        self._state_update_listener = None
 
     def is_finished(self):
         """check whether all queue items are finished"""
@@ -488,14 +489,33 @@ class ActionQueue:
         while task_idx < len(self._queue):
             action = self._queue[task_idx]
 
-            if action[CONF_SERVICE] == ACTION_WAIT:
+            if action[CONF_SERVICE] in [ACTION_WAIT, ACTION_WAIT_STATE_CHANGE]:
                 if skip_action:
                     task_idx = task_idx + 1
                     continue
+                elif action[CONF_SERVICE] == ACTION_WAIT_STATE_CHANGE:
+                    state = self.hass.states.get(action[ATTR_ENTITY_ID])
+                    if CONF_ATTRIBUTE in action[CONF_SERVICE_DATA]:
+                        state = state.attributes.get(action[CONF_SERVICE_DATA][CONF_ATTRIBUTE])
+                    else:
+                        state = state.state
+                    if state == action[CONF_SERVICE_DATA][CONF_STATE]:
+                        _LOGGER.debug(
+                            "[{}]: Entity {} is already set to {}, proceed with next action".format(
+                                self.id,
+                                action[ATTR_ENTITY_ID],
+                                state,
+                            )
+                        )
+                        task_idx = task_idx + 1
+                        continue
 
                 @callback
                 async def async_timer_finished(_now):
                     self._timer = None
+                    if self._state_update_listener:
+                        self._state_update_listener()
+                    self._state_update_listener = None
                     self.queue_busy = False
                     await self.async_process_queue(task_idx + 1)
 
@@ -509,6 +529,39 @@ class ActionQueue:
                         self.id, action[CONF_SERVICE_DATA][CONF_DELAY]
                     )
                 )
+
+                @callback
+                async def async_entity_changed(entity, old_state, new_state):
+                    if CONF_ATTRIBUTE in action[CONF_SERVICE_DATA]:
+                        old_state = old_state.attributes.get(action[CONF_SERVICE_DATA][CONF_ATTRIBUTE])
+                        new_state = new_state.attributes.get(action[CONF_SERVICE_DATA][CONF_ATTRIBUTE])
+                    else:
+                        old_state = old_state.state
+                        new_state = new_state.state
+                    if old_state == new_state:
+                        return
+                    _LOGGER.debug(
+                        "[{}]: Entity {} was updated from {} to {}".format(
+                            self.id,
+                            entity,
+                            old_state,
+                            new_state
+                        )
+                    )
+                    if new_state == action[CONF_SERVICE_DATA][CONF_STATE]:
+                        _LOGGER.debug("[{}]: Stop postponing next action".format(self.id))
+                        if self._timer:
+                            self._timer()
+                        self._timer = None
+                        self._state_update_listener()
+                        self._state_update_listener = None
+                        self.queue_busy = False
+                        await self.async_process_queue(task_idx + 1)
+
+                if action[CONF_SERVICE] == ACTION_WAIT_STATE_CHANGE:
+                    self._state_update_listener = async_track_state_change(
+                        self.hass, action[ATTR_ENTITY_ID], async_entity_changed
+                    )
                 return
 
             if ATTR_ENTITY_ID in action:
