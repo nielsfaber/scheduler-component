@@ -232,7 +232,8 @@ async def async_register_websockets(hass):
     hass.http.register_view(SchedulesListView)
 
     # pass list of schedules to frontend
-    hass.components.websocket_api.async_register_command(
+    websocket_api.async_register_command(
+        hass,
         const.DOMAIN,
         websocket_get_schedules,
         websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
@@ -243,7 +244,8 @@ async def async_register_websockets(hass):
     )
 
     # pass single schedule to frontend
-    hass.components.websocket_api.async_register_command(
+    websocket_api.async_register_command(
+        hass,
         "{}/item".format(const.DOMAIN),
         websocket_get_schedule_item,
         websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
@@ -255,7 +257,8 @@ async def async_register_websockets(hass):
     )
 
     # pass list of tags to frontend
-    hass.components.websocket_api.async_register_command(
+    websocket_api.async_register_command(
+        hass,
         "{}/tags".format(const.DOMAIN),
         websocket_get_tags,
         websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
