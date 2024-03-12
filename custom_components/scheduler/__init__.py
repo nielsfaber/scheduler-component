@@ -213,6 +213,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         self.state = const.STATE_INIT
         self._workday_tracker = None
         self._workday_timer = None
+        self.stopped = False
 
         super().__init__(hass, _LOGGER, name=const.DOMAIN)
 
@@ -243,11 +244,13 @@ class SchedulerCoordinator(DataUpdateCoordinator):
 
         # store the current date+time when scheduler is being shutdown
         @callback
-        async def async_handle_stopped(_event):
+        async def async_handle_shutdown(_event):
+            if self.stopped:
+                return
             now = dt_util.utcnow().isoformat()
             await self.store.async_set_time_shutdown(now)
 
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, async_handle_stopped)
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, async_handle_shutdown)
 
     def async_get_schedule(self, schedule_id: str):
         """fetch a schedule (websocket API hook)"""
@@ -326,6 +329,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         if self._workday_tracker:
             self._workday_tracker()
             self._workday_tracker = None
+        self.stopped = True
 
     async def async_delete_config(self):
         await self.store.async_delete()
