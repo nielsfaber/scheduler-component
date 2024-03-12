@@ -130,7 +130,7 @@ def service_is_available(hass: HomeAssistant, service: str):
     return hass.services.has_service(domain, domain_service)
 
 
-def validate_condition(hass: HomeAssistant, condition: dict):
+def validate_condition(hass: HomeAssistant, condition: dict, *args):
     """Validate a condition against the current state"""
 
     if not entity_is_available(hass, condition[ATTR_ENTITY_ID], True):
@@ -140,6 +140,8 @@ def validate_condition(hass: HomeAssistant, condition: dict):
 
     required = condition[const.ATTR_VALUE]
     actual = state.state if state else None
+    if len(args):
+        actual = args[0]
 
     if (
         condition[const.ATTR_MATCH_TYPE]
@@ -368,6 +370,21 @@ class ActionQueue:
             if entity not in self._condition_entities and not self._wait_for_available:
                 # only watch until entity becomes available in the action entities
                 return
+
+            if (
+                entity in self._condition_entities
+                and old_state
+                and new_state
+                and old_state not in [STATE_UNAVAILABLE, STATE_UNKNOWN]
+                and new_state not in [STATE_UNAVAILABLE, STATE_UNKNOWN]
+            ):
+                conditions = list(filter(lambda e: e[ATTR_ENTITY_ID] == entity, self._conditions))
+                if all([
+                    validate_condition(self.hass, item, old_state) == validate_condition(self.hass, item, new_state)
+                    for item in conditions
+                ]):
+                    # ignore if state change has no effect on condition rules
+                    return
 
             _LOGGER.debug(
                 "[{}]: State of {} has changed, re-evaluating actions".format(
