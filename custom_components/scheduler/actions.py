@@ -59,43 +59,45 @@ def parse_service_call(data: dict):
         service_call[CONF_SERVICE]
         == "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE)
         and ATTR_HVAC_MODE in service_call[CONF_SERVICE_DATA]
-        and (
-            ATTR_TEMPERATURE in service_call[CONF_SERVICE_DATA]
-            or ATTR_TARGET_TEMP_LOW in service_call[CONF_SERVICE_DATA]
-            or ATTR_TARGET_TEMP_HIGH in service_call[CONF_SERVICE_DATA]
-        )
         and ATTR_ENTITY_ID in service_call
     ):
         # fix for climate integrations which don't support setting hvac_mode and temperature together
         # add small delay between service calls for integrations that have a long processing time
         # set temperature setpoint again for integrations which lose setpoint after switching hvac_mode
-        service_call = [
+        _service_call = [
             {
                 CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE),
                 ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
                 CONF_SERVICE_DATA: {
                     ATTR_HVAC_MODE: service_call[CONF_SERVICE_DATA][ATTR_HVAC_MODE]
                 },
-            },
-            {
-                CONF_SERVICE: ACTION_WAIT_STATE_CHANGE,
-                ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
-                CONF_SERVICE_DATA: {
-                    CONF_DELAY: 50,
-                    CONF_STATE: service_call[CONF_SERVICE_DATA][ATTR_HVAC_MODE]
-                },
-            },
-            {
-                CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
-                ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
-                CONF_SERVICE_DATA: {
-                    x: service_call[CONF_SERVICE_DATA][x]
-                    for x in service_call[CONF_SERVICE_DATA]
-                    if x != ATTR_HVAC_MODE
-                },
-            },
+            }
         ]
-        return service_call
+        if (
+            ATTR_TEMPERATURE in service_call[CONF_SERVICE_DATA]
+            or ATTR_TARGET_TEMP_LOW in service_call[CONF_SERVICE_DATA]
+            or ATTR_TARGET_TEMP_HIGH in service_call[CONF_SERVICE_DATA]
+        ):
+            _service_call.extend([
+                {
+                    CONF_SERVICE: ACTION_WAIT_STATE_CHANGE,
+                    ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
+                    CONF_SERVICE_DATA: {
+                        CONF_DELAY: 50,
+                        CONF_STATE: service_call[CONF_SERVICE_DATA][ATTR_HVAC_MODE]
+                    },
+                },
+                {
+                    CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
+                    ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
+                    CONF_SERVICE_DATA: {
+                        x: service_call[CONF_SERVICE_DATA][x]
+                        for x in service_call[CONF_SERVICE_DATA]
+                        if x != ATTR_HVAC_MODE
+                    },
+                },
+            ])
+        return _service_call
     else:
         return [service_call]
 
