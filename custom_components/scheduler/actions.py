@@ -257,7 +257,7 @@ class ActionHandler:
 
             self._queues[entity].add_action(action)
 
-        for queue in self._queues.values():
+        for queue in self._queues.copy().values():
             await queue.async_start(skip_initial_execution)
 
     async def async_cleanup_queues(self, id: str = None):
