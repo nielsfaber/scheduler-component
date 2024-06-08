@@ -23,7 +23,7 @@ from homeassistant.helpers.dispatcher import (
 )
 from homeassistant.helpers.event import (
     async_call_later,
-    async_track_state_change,
+    async_track_state_change_event,
     async_track_point_in_time,
 )
 
@@ -425,7 +425,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             await self.async_reset_workday_timer()
             async_dispatcher_send(self.hass, const.EVENT_WORKDAY_SENSOR_UPDATED)
 
-        self._workday_tracker = async_track_state_change(
+        self._workday_tracker = async_track_state_change_event(
             self.hass, const.WORKDAY_ENTITY, async_workday_state_updated
         )
         await self.async_reset_workday_timer()

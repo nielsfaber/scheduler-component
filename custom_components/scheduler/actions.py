@@ -27,7 +27,7 @@ from homeassistant.components.climate import (
     DOMAIN as CLIMATE_DOMAIN,
 )
 from homeassistant.helpers.event import (
-    async_track_state_change,
+    async_track_state_change_event,
     async_call_later,
 )
 from homeassistant.helpers.service import async_call_from_config
@@ -398,7 +398,7 @@ class ActionQueue:
         watched_entities = list(set(self._condition_entities + self._action_entities))
         if len(watched_entities):
             self._listeners.append(
-                async_track_state_change(
+                async_track_state_change_event(
                     self.hass, watched_entities, async_entity_changed
                 )
             )
@@ -585,7 +585,7 @@ class ActionQueue:
                         await self.async_process_queue(task_idx + 1)
 
                 if action[CONF_SERVICE] == ACTION_WAIT_STATE_CHANGE:
-                    self._state_update_listener = async_track_state_change(
+                    self._state_update_listener = async_track_state_change_event(
                         self.hass, action[ATTR_ENTITY_ID], async_entity_changed
                     )
                 return
