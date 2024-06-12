@@ -356,11 +356,11 @@ class ActionQueue:
         """start execution of the actions in the queue"""
 
         @callback
-        async def async_entity_changed(entity, old_state, new_state):
+        async def async_entity_changed(event):
             """check if actions can be processed"""
-
-            old_state = old_state.state if old_state else None
-            new_state = new_state.state if new_state else None
+            entity = event.data["entity_id"]
+            old_state = event.data["old_state"].state if event.data["old_state"] else None
+            new_state = event.data["new_state"].state if event.data["new_state"] else None
 
             if old_state == new_state:
                 # no change
@@ -557,7 +557,11 @@ class ActionQueue:
                 )
 
                 @callback
-                async def async_entity_changed(entity, old_state, new_state):
+                async def async_entity_changed(event):
+                    entity = event.data["entity_id"]
+                    old_state = event.data["old_state"]
+                    new_state = event.data["new_state"]
+
                     if CONF_ATTRIBUTE in action[CONF_SERVICE_DATA]:
                         old_state = old_state.attributes.get(action[CONF_SERVICE_DATA][CONF_ATTRIBUTE])
                         new_state = new_state.attributes.get(action[CONF_SERVICE_DATA][CONF_ATTRIBUTE])

@@ -419,7 +419,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             return None
 
         @callback
-        async def async_workday_state_updated(entity, old_state, new_state):
+        async def async_workday_state_updated(_event):
             """the workday sensor has been updated"""
             _LOGGER.debug("Workday sensor has updated")
             await self.async_reset_workday_timer()

@@ -184,7 +184,7 @@ class TimerHandler:
                 return
 
             @callback
-            async def async_sun_updated(entity, old_state, new_state):
+            async def async_sun_updated(_event):
                 """the sun entity was updated"""
                 # sun entity changed
                 if self._next_trigger is None:
