@@ -65,6 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     await async_register_websockets(hass)
 
+    @callback
     def service_create_schedule(service):
         coordinator.async_create_schedule(dict(service.data))
 
@@ -75,7 +76,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         schema=const.ADD_SCHEDULE_SCHEMA,
     )
 
-    async def async_service_edit_schedule(service):
+    @callback
+    def async_service_edit_schedule(service):
         match = None
         for (schedule_id, entity) in hass.data[const.DOMAIN]["schedules"].items():
             if entity.entity_id == service.data[const.ATTR_ENTITY_ID]:
@@ -88,7 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         else:
             data = dict(service.data)
             del data[const.ATTR_ENTITY_ID]
-            await coordinator.async_edit_schedule(match, data)
+            coordinator.async_edit_schedule(match, data)
 
     hass.services.async_register(
         const.DOMAIN,
@@ -99,7 +101,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         ),
     )
 
-    async def async_service_remove_schedule(service):
+    @callback
+    def async_service_remove_schedule(service):
         match = None
         for (schedule_id, entity) in hass.data[const.DOMAIN]["schedules"].items():
             if entity.entity_id == service.data["entity_id"]:
@@ -108,7 +111,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         if not match:
             raise vol.Invalid("Entity not found: {}".format(service.data["entity_id"]))
         else:
-            await coordinator.async_delete_schedule(match)
+            coordinator.async_delete_schedule(match)
 
     hass.services.async_register(
         const.DOMAIN,
@@ -117,6 +120,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         schema=vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.string}),
     )
 
+    @callback
     def service_copy_schedule(service):
         match = None
         for (schedule_id, entity) in hass.data[const.DOMAIN]["schedules"].items():
@@ -266,6 +270,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             data.append(config)
         return data
 
+    @callback
     def async_create_schedule(self, data):
         """add a new schedule"""
         tags = None
@@ -277,7 +282,8 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             self.async_assign_tags_to_schedule(res.schedule_id, tags)
             async_dispatcher_send(self.hass, const.EVENT_ITEM_CREATED, res)
 
-    async def async_edit_schedule(self, schedule_id: str, data: dict):
+    @callback
+    def async_edit_schedule(self, schedule_id: str, data: dict):
         """edit an existing schedule"""
         if schedule_id not in self.hass.data[const.DOMAIN]["schedules"]:
             return
@@ -307,7 +313,8 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         else:
             async_dispatcher_send(self.hass, const.EVENT_ITEM_UPDATED, schedule_id)
 
-    async def async_delete_schedule(self, schedule_id: str):
+    @callback
+    def async_delete_schedule(self, schedule_id: str):
         """delete an existing schedule"""
         if schedule_id not in self.hass.data[const.DOMAIN]["schedules"]:
             return

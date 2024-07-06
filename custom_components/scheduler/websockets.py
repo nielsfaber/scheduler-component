@@ -58,7 +58,7 @@ class SchedulesEditView(HomeAssistantView):
         coordinator = hass.data[const.DOMAIN]["coordinator"]
         schedule_id = data[const.ATTR_SCHEDULE_ID]
         del data[const.ATTR_SCHEDULE_ID]
-        await coordinator.async_edit_schedule(schedule_id, data)
+        coordinator.async_edit_schedule(schedule_id, data)
         return self.json({"success": True})
 
 
@@ -73,7 +73,7 @@ class SchedulesRemoveView(HomeAssistantView):
         """Handle config update request."""
         hass = request.app["hass"]
         coordinator = hass.data[const.DOMAIN]["coordinator"]
-        await coordinator.async_delete_schedule(data[const.ATTR_SCHEDULE_ID])
+        coordinator.async_delete_schedule(data[const.ATTR_SCHEDULE_ID])
         return self.json({"success": True})
 
 
