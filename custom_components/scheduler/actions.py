@@ -15,7 +15,8 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     CONF_CONDITIONS,
     CONF_ATTRIBUTE,
-    CONF_STATE
+    CONF_STATE,
+    CONF_ACTION
 )
 from homeassistant.components.climate import (
     SERVICE_SET_TEMPERATURE,
@@ -49,14 +50,14 @@ def parse_service_call(data: dict):
     """turn action data into a service call"""
 
     service_call = {
-        CONF_SERVICE: data[CONF_SERVICE],
+        CONF_ACTION: data[CONF_ACTION] if CONF_ACTION in data else data[CONF_SERVICE], # map service->action for backwards compaibility
         CONF_SERVICE_DATA: data[ATTR_SERVICE_DATA],
     }
     if ATTR_ENTITY_ID in data and data[ATTR_ENTITY_ID]:
         service_call[ATTR_ENTITY_ID] = data[ATTR_ENTITY_ID]
 
     if (
-        service_call[CONF_SERVICE]
+        service_call[CONF_ACTION]
         == "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE)
         and ATTR_HVAC_MODE in service_call[CONF_SERVICE_DATA]
         and ATTR_ENTITY_ID in service_call
@@ -66,7 +67,7 @@ def parse_service_call(data: dict):
         # set temperature setpoint again for integrations which lose setpoint after switching hvac_mode
         _service_call = [
             {
-                CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE),
+                CONF_ACTION: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_HVAC_MODE),
                 ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
                 CONF_SERVICE_DATA: {
                     ATTR_HVAC_MODE: service_call[CONF_SERVICE_DATA][ATTR_HVAC_MODE]
@@ -80,7 +81,7 @@ def parse_service_call(data: dict):
         ):
             _service_call.extend([
                 {
-                    CONF_SERVICE: ACTION_WAIT_STATE_CHANGE,
+                    CONF_ACTION: ACTION_WAIT_STATE_CHANGE,
                     ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
                     CONF_SERVICE_DATA: {
                         CONF_DELAY: 50,
@@ -88,7 +89,7 @@ def parse_service_call(data: dict):
                     },
                 },
                 {
-                    CONF_SERVICE: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
+                    CONF_ACTION: "{}.{}".format(CLIMATE_DOMAIN, SERVICE_SET_TEMPERATURE),
                     ATTR_ENTITY_ID: service_call[ATTR_ENTITY_ID],
                     CONF_SERVICE_DATA: {
                         x: service_call[CONF_SERVICE_DATA][x]
@@ -123,12 +124,12 @@ def entity_is_available(hass: HomeAssistant, entity, is_target_entity=False):
         return False
 
 
-def service_is_available(hass: HomeAssistant, service: str):
-    """evaluate whether a HA service is ready for targeting"""
-    if service in [ACTION_WAIT, ACTION_WAIT_STATE_CHANGE]:
+def action_is_available(hass: HomeAssistant, action: str):
+    """evaluate whether a HA action is ready for targeting"""
+    if action in [ACTION_WAIT, ACTION_WAIT_STATE_CHANGE]:
         return True
-    domain = service.split(".").pop(0)
-    domain_service = service.split(".").pop(1)
+    domain = action.split(".").pop(0)
+    domain_service = action.split(".").pop(1)
     return hass.services.has_service(domain, domain_service)
 
 
@@ -193,8 +194,8 @@ def action_has_effect(action: dict, hass: HomeAssistant):
     if ATTR_ENTITY_ID not in action:
         return True
 
-    domain = action[CONF_SERVICE].split(".").pop(0)
-    service = action[CONF_SERVICE].split(".").pop(1)
+    domain = action[CONF_ACTION].split(".").pop(0)
+    service = action[CONF_ACTION].split(".").pop(1)
     state = hass.states.get(action[ATTR_ENTITY_ID])
     current_state = state.state if state else None
 
@@ -276,7 +277,7 @@ class ActionHandler:
                 self._queues.pop(key)
 
         if not len(self._queues.keys()):
-            _LOGGER.debug("[{}]: Finished execution of actions".format(self.id))
+            _LOGGER.debug("[{}]: Finished execution of tasks".format(self.id))
 
     async def async_empty_queue(self, **kwargs):
         """remove all objects from queue"""
@@ -435,18 +436,18 @@ class ActionQueue:
         return len(self._queue) == 0
 
     def is_available(self):
-        """check if all services and entities involved in the task are available"""
+        """check if all actions and entities involved in the task are available"""
 
-        # check services
-        required_services = [action[CONF_SERVICE] for action in self._queue]
-        failed_service = next(
-            (x for x in required_services if not service_is_available(self.hass, x)),
+        # check actions
+        required_actions = [action[CONF_ACTION] for action in self._queue]
+        failed_action = next(
+            (x for x in required_actions if not action_is_available(self.hass, x)),
             None,
         )
-        if failed_service:
+        if failed_action:
             _LOGGER.debug(
-                "[{}]: Service {} is unavailable, scheduled action cannot be executed".format(
-                    self.id, failed_service
+                "[{}]: Action {} is unavailable, scheduled task cannot be executed".format(
+                    self.id, failed_action
                 )
             )
             return False
@@ -510,26 +511,26 @@ class ActionQueue:
                 while len(self._queue):
                     self._queue.pop()
 
-        skip_action = False
+        skip_task = False
 
         while task_idx < len(self._queue):
-            action = self._queue[task_idx]
+            task = self._queue[task_idx]
 
-            if action[CONF_SERVICE] in [ACTION_WAIT, ACTION_WAIT_STATE_CHANGE]:
+            if task[CONF_ACTION] in [ACTION_WAIT, ACTION_WAIT_STATE_CHANGE]:
                 if skip_action:
                     task_idx = task_idx + 1
                     continue
-                elif action[CONF_SERVICE] == ACTION_WAIT_STATE_CHANGE:
-                    state = self.hass.states.get(action[ATTR_ENTITY_ID])
-                    if CONF_ATTRIBUTE in action[CONF_SERVICE_DATA]:
-                        state = state.attributes.get(action[CONF_SERVICE_DATA][CONF_ATTRIBUTE])
+                elif task[CONF_ACTION] == ACTION_WAIT_STATE_CHANGE:
+                    state = self.hass.states.get(task[ATTR_ENTITY_ID])
+                    if CONF_ATTRIBUTE in task[CONF_SERVICE_DATA]:
+                        state = state.attributes.get(task[CONF_SERVICE_DATA][CONF_ATTRIBUTE])
                     else:
                         state = state.state
-                    if state == action[CONF_SERVICE_DATA][CONF_STATE]:
+                    if state == task[CONF_SERVICE_DATA][CONF_STATE]:
                         _LOGGER.debug(
-                            "[{}]: Entity {} is already set to {}, proceed with next action".format(
+                            "[{}]: Entity {} is already set to {}, proceed with next task".format(
                                 self.id,
-                                action[ATTR_ENTITY_ID],
+                                task[ATTR_ENTITY_ID],
                                 state,
                             )
                         )
@@ -547,12 +548,12 @@ class ActionQueue:
 
                 self._timer = async_call_later(
                     self.hass,
-                    action[CONF_SERVICE_DATA][CONF_DELAY],
+                    task[CONF_SERVICE_DATA][CONF_DELAY],
                     async_timer_finished,
                 )
                 _LOGGER.debug(
-                    "[{}]: Postponing next action for {} seconds".format(
-                        self.id, action[CONF_SERVICE_DATA][CONF_DELAY]
+                    "[{}]: Postponing next task for {} seconds".format(
+                        self.id, task[CONF_SERVICE_DATA][CONF_DELAY]
                     )
                 )
 
@@ -562,9 +563,9 @@ class ActionQueue:
                     old_state = event.data["old_state"]
                     new_state = event.data["new_state"]
 
-                    if CONF_ATTRIBUTE in action[CONF_SERVICE_DATA]:
-                        old_state = old_state.attributes.get(action[CONF_SERVICE_DATA][CONF_ATTRIBUTE])
-                        new_state = new_state.attributes.get(action[CONF_SERVICE_DATA][CONF_ATTRIBUTE])
+                    if CONF_ATTRIBUTE in task[CONF_SERVICE_DATA]:
+                        old_state = old_state.attributes.get(task[CONF_SERVICE_DATA][CONF_ATTRIBUTE])
+                        new_state = new_state.attributes.get(task[CONF_SERVICE_DATA][CONF_ATTRIBUTE])
                     else:
                         old_state = old_state.state
                         new_state = new_state.state
@@ -578,8 +579,8 @@ class ActionQueue:
                             new_state
                         )
                     )
-                    if new_state == action[CONF_SERVICE_DATA][CONF_STATE]:
-                        _LOGGER.debug("[{}]: Stop postponing next action".format(self.id))
+                    if new_state == task[CONF_SERVICE_DATA][CONF_STATE]:
+                        _LOGGER.debug("[{}]: Stop postponing next task".format(self.id))
                         if self._timer:
                             self._timer()
                         self._timer = None
@@ -588,30 +589,30 @@ class ActionQueue:
                         self.queue_busy = False
                         await self.async_process_queue(task_idx + 1)
 
-                if action[CONF_SERVICE] == ACTION_WAIT_STATE_CHANGE:
+                if task[CONF_ACTION] == ACTION_WAIT_STATE_CHANGE:
                     self._state_update_listener = async_track_state_change_event(
-                        self.hass, action[ATTR_ENTITY_ID], async_entity_changed
+                        self.hass, task[ATTR_ENTITY_ID], async_entity_changed
                     )
                 return
 
-            if ATTR_ENTITY_ID in action:
+            if ATTR_ENTITY_ID in task:
                 _LOGGER.debug(
-                    "[{}]: Executing service {} on entity {}".format(
-                        self.id, action[CONF_SERVICE], action[ATTR_ENTITY_ID]
+                    "[{}]: Executing action {} on entity {}".format(
+                        self.id, task[CONF_ACTION], task[ATTR_ENTITY_ID]
                     )
                 )
             else:
                 _LOGGER.debug(
-                    "[{}]: Executing service {}".format(self.id, action[CONF_SERVICE])
+                    "[{}]: Executing action {}".format(self.id, task[CONF_ACTION])
                 )
 
-            skip_action = not action_has_effect(action, self.hass)
+            skip_action = not action_has_effect(task, self.hass)
             if skip_action:
                 _LOGGER.debug("[{}]: Action has no effect, skipping".format(self.id))
             else:
                 await async_call_from_config(
                     self.hass,
-                    action,
+                    task,
                 )
             task_idx = task_idx + 1
 

@@ -15,7 +15,7 @@ from homeassistant.const import (
     ATTR_NAME,
 )
 
-VERSION = "3.3.5"
+VERSION = "3.3.6"
 
 DOMAIN = "scheduler"
 
