@@ -39,7 +39,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 SERVICE_RUN_ACTION = "run_action"
-RUN_ACTION_SCHEMA = vol.Schema(
+RUN_ACTION_SCHEMA = cv.make_entity_service_schema(
     {vol.Required(ATTR_ENTITY_ID): cv.entity_ids, vol.Optional(ATTR_TIME): cv.time, vol.Optional(const.ATTR_SKIP_CONDITIONS): cv.boolean}
 )
 
