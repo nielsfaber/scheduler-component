@@ -9,7 +9,6 @@ import homeassistant.util.dt as dt_util
 from homeassistant.components.switch import DOMAIN as PLATFORM
 from homeassistant.helpers import entity_platform, config_validation as cv
 from homeassistant.const import (
-    STATE_ALARM_TRIGGERED as STATE_TRIGGERED,
     STATE_OFF,
     STATE_ON,
     STATE_UNAVAILABLE,
@@ -21,6 +20,7 @@ from homeassistant.const import (
     CONF_SERVICE_DATA,
     CONF_CONDITIONS,
 )
+from homeassistant.components.alarm_control_panel import AlarmControlPanelState
 from homeassistant.core import callback
 from homeassistant.helpers.entity import ToggleEntity, EntityCategory
 from homeassistant.helpers.event import (
@@ -210,7 +210,7 @@ class ScheduleEntity(ToggleEntity):
 
         self._current_slot = self._timer_handler.current_slot
 
-        if self._state not in [STATE_OFF, STATE_TRIGGERED]:
+        if self._state not in [STATE_OFF, AlarmControlPanelState.TRIGGERED]:
             if len(self._next_entries) < 1:
                 self._state = STATE_UNAVAILABLE
             else:
@@ -282,14 +282,14 @@ class ScheduleEntity(ToggleEntity):
         @callback
         async def async_trigger_finished(_now):
             """internal timer is finished, reset the schedule"""
-            if self._state == STATE_TRIGGERED:
+            if self._state == AlarmControlPanelState.TRIGGERED:
                 self._state = STATE_ON
             await self._timer_handler.async_start_timer()
 
         # keep the entity in triggered state for 1 minute, then restart the timer
         self._timer = async_call_later(self.hass, 60, async_trigger_finished)
         if self._state == STATE_ON:
-            self._state = STATE_TRIGGERED
+            self._state = AlarmControlPanelState.TRIGGERED
 
         self.async_write_ha_state()
         self.hass.bus.async_fire(const.EVENT)
