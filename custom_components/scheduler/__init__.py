@@ -171,8 +171,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         async_service_enable_all
     )
 
-    return True
+    async def async_service_reload_storage(service):
+        """Reload scheduler storage from disk."""
+        await coordinator.async_reload_storage()
 
+    hass.services.async_register(
+        const.DOMAIN,
+        const.SERVICE_RELOAD_STORAGE,
+        async_service_reload_storage
+    )
+
+    return True
 
 async def async_migrate_entry(hass, config_entry: ConfigEntry):
     """Migrate old entry."""
@@ -444,3 +453,27 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         """disables all schedules"""
         for schedule in self.hass.data[const.DOMAIN]["schedules"].values():
             await schedule.async_turn_off()
+
+    async def async_reload_storage(self):
+        """Reload scheduler storage from disk."""
+        _LOGGER.info("Reloading scheduler storage from disk")
+
+        # Clear existing schedules to prevent duplicates
+        entity_registry = get_entity_registry(self.hass)
+        existing_schedules = list(self.hass.data[const.DOMAIN]["schedules"].keys())
+        for schedule_id in existing_schedules:
+            entity = self.hass.data[const.DOMAIN]["schedules"][schedule_id]
+            entity_registry.async_remove(entity.entity_id)
+            self.hass.data[const.DOMAIN]["schedules"].pop(schedule_id, None)
+            async_dispatcher_send(self.hass, const.EVENT_ITEM_REMOVED, schedule_id)
+
+        # Reload storage data
+        await self.store.async_load()
+
+        # Recreate entities from reloaded data
+        for entry in self.store.schedules.values():
+            async_dispatcher_send(self.hass, const.EVENT_ITEM_CREATED, entry)
+
+        _LOGGER.info("Scheduler storage reloaded successfully")
+        # Notify listeners that storage has been reloaded
+        async_dispatcher_send(self.hass, const.EVENT_STARTED)

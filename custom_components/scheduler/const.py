@@ -53,6 +53,7 @@ SERVICE_ADD = "add"
 SERVICE_COPY = "copy"
 SERVICE_DISABLE_ALL = "disable_all"
 SERVICE_ENABLE_ALL = "enable_all"
+SERVICE_RELOAD_STORAGE = "reload_storage"
 
 OffsetTimePattern = re.compile(r"^([a-z]+)([-|\+]{1})([0-9:]+)$")
 DatePattern = re.compile(r"^[0-9]+\-[0-9]+\-[0-9]+$")

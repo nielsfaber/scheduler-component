@@ -78,6 +78,11 @@ async def async_setup_entry(hass, _config_entry, async_add_entities):
         schedule_id = schedule.schedule_id
         name = schedule.name
 
+        # Check if entity already exists to prevent duplicates
+        if schedule_id in hass.data[const.DOMAIN]["schedules"]:
+            _LOGGER.debug(f"Schedule entity {schedule_id} already exists, skipping creation")
+            return
+
         if name and len(slugify(name)):
             entity_id = "{}.schedule_{}".format(PLATFORM, slugify(name))
         else:
@@ -450,6 +455,7 @@ class ScheduleEntity(ToggleEntity):
 
         self._timer_handler = TimerHandler(self.hass, self.schedule_id)
         self._action_handler = ActionHandler(self.hass, self.schedule_id)
+        _LOGGER.debug("added to hass")
 
     async def async_turn_off(self):
         """turn off a schedule"""

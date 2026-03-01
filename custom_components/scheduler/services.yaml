@@ -178,3 +178,7 @@ disable_all:
 enable_all:
   name: Enable All
   description:  Enables all schedules
+
+reload_storage:
+  name: Reload Storage
+  description: Reload scheduler storage from disk to refresh data

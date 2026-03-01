@@ -138,6 +138,11 @@ Manually trigger a schedule.
 | `time`            | string  | optional          | Time for which to trigger the schedule.                          | If a schedule only has a single timeslot, this timeslot will always be triggered.<br>For schedules with a multiple timeslots: <ul><li>If no time is provided: the schedule overlapping the current time (now) is triggered.</li><li>If time is provided: the schedule overlapping the provided time is triggered.</li></ul> |
 | `skip_conditions` | boolean | optional          | Whether the conditions of the schedule should be skipped or not. |                                                                                                                                                                                                                                                                                                                             |
 
+#### scheduler.reload_storage
+
+Reload scheduler storage from disk to refresh data.
+
+
 ### Data format
 
 #### Timeslot
