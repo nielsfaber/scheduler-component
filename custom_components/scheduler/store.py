@@ -7,6 +7,7 @@ import attr
 from homeassistant.core import callback, HomeAssistant
 from homeassistant.loader import bind_hass
 from homeassistant.const import (
+    ATTR_ENTITY_ID,
     ATTR_NAME,
     CONF_CONDITIONS,
 )
@@ -92,6 +93,19 @@ def parse_schedule_data(data: dict):
             timeslots.append(timeslot)
         data[const.ATTR_TIMESLOTS] = timeslots
     return data
+
+
+def replace_entity_id(timeslots: list, old_entity_id: str, new_entity_id: str) -> bool:
+    """replace an entity ID in the actions and conditions, return whether it was used"""
+    references = [
+        item
+        for timeslot in timeslots
+        for item in timeslot[const.ATTR_ACTIONS] + timeslot[CONF_CONDITIONS]
+        if item[ATTR_ENTITY_ID] == old_entity_id
+    ]
+    for reference in references:
+        reference[ATTR_ENTITY_ID] = new_entity_id
+    return bool(references)
 
 
 class MigratableStore(Store):

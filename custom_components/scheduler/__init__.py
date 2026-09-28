@@ -16,7 +16,10 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, asyncio, CoreState, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.entity_registry import async_get as get_entity_registry
+from homeassistant.helpers.entity_registry import (
+    EVENT_ENTITY_REGISTRY_UPDATED,
+    async_get as get_entity_registry,
+)
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.dispatcher import (
     async_dispatcher_send,
@@ -28,7 +31,7 @@ from homeassistant.helpers.event import (
 )
 
 from . import const
-from .store import async_get_registry
+from .store import async_get_registry, replace_entity_id
 from .websockets import async_register_websockets
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,6 +67,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await hass.config_entries.async_forward_entry_setups(entry, [PLATFORM])
 
     await async_register_websockets(hass)
+
+    entry.async_on_unload(
+        hass.bus.async_listen(
+            EVENT_ENTITY_REGISTRY_UPDATED, coordinator.async_handle_entity_id_change
+        )
+    )
 
     @callback
     def service_create_schedule(service):
@@ -290,6 +299,19 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         if res:
             self.async_assign_tags_to_schedule(res.schedule_id, tags)
             async_dispatcher_send(self.hass, const.EVENT_ITEM_CREATED, res)
+
+    @callback
+    def async_handle_entity_id_change(self, event):
+        """update the schedules that refer to an entity whose entity ID was changed"""
+        if event.data["action"] != "update" or "old_entity_id" not in event.data:
+            return
+        old_entity_id = event.data["old_entity_id"]
+        new_entity_id = event.data["entity_id"]
+
+        for schedule_id, schedule in self.store.async_get_schedules().items():
+            timeslots = schedule[const.ATTR_TIMESLOTS]
+            if replace_entity_id(timeslots, old_entity_id, new_entity_id):
+                self.async_edit_schedule(schedule_id, {const.ATTR_TIMESLOTS: timeslots})
 
     @callback
     def async_edit_schedule(self, schedule_id: str, data: dict):
