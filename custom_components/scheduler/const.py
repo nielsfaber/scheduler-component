@@ -46,6 +46,9 @@ REPEAT_TYPE_SINGLE = "single"
 REPEAT_TYPE_PAUSE = "pause"
 
 EVENT = "scheduler_updated"
+EVENT_SCHEDULE_TRIGGERED = "scheduler_triggered"
+
+ATTR_SOURCE = "source"
 
 SERVICE_REMOVE = "remove"
 SERVICE_EDIT = "edit"
