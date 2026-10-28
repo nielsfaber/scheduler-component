@@ -21,7 +21,7 @@ from homeassistant.const import (
     CONF_CONDITIONS,
 )
 from homeassistant.components.alarm_control_panel import AlarmControlPanelState
-from homeassistant.core import callback
+from homeassistant.core import Context, ServiceCall, callback
 from homeassistant.helpers.entity import ToggleEntity, EntityCategory
 from homeassistant.helpers.event import (
     async_call_later,
@@ -42,6 +42,15 @@ SERVICE_RUN_ACTION = "run_action"
 RUN_ACTION_SCHEMA = cv.make_entity_service_schema(
     {vol.Required(ATTR_ENTITY_ID): cv.entity_ids, vol.Optional(ATTR_TIME): cv.time, vol.Optional(const.ATTR_SKIP_CONDITIONS): cv.boolean}
 )
+
+
+async def async_service_run_action(entity, service_call: ServiceCall):
+    """Run schedule actions while retaining the service call context."""
+    await entity.async_service_run_action(
+        time=service_call.data.get(ATTR_TIME),
+        skip_conditions=service_call.data.get(const.ATTR_SKIP_CONDITIONS, False),
+        parent_context=service_call.context,
+    )
 
 
 def entity_exists_in_hass(hass, entity_id):
@@ -66,7 +75,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     return True
 
 
-async def async_setup_entry(hass, _config_entry, async_add_entities):
+async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the Scheduler switch devices."""
 
     coordinator = hass.data[const.DOMAIN]["coordinator"]
@@ -95,12 +104,14 @@ async def async_setup_entry(hass, _config_entry, async_add_entities):
     for entry in coordinator.store.schedules.values():
         async_add_entity(entry)
 
-    async_dispatcher_connect(hass, const.EVENT_ITEM_CREATED, async_add_entity)
+    config_entry.async_on_unload(
+        async_dispatcher_connect(hass, const.EVENT_ITEM_CREATED, async_add_entity)
+    )
 
     platform = entity_platform.current_platform.get()
 
     platform.async_register_entity_service(
-        SERVICE_RUN_ACTION, RUN_ACTION_SCHEMA, "async_service_run_action"
+        SERVICE_RUN_ACTION, RUN_ACTION_SCHEMA, async_service_run_action
     )
 
 
@@ -257,7 +268,9 @@ class ScheduleEntity(ToggleEntity):
                     )
                 await self._action_handler.async_queue_actions(
                     self.schedule[const.ATTR_TIMESLOTS][self._current_slot],
-                    skip_initial_execution
+                    self.name,
+                    self.entity_id,
+                    skip_initial_execution,
                 )
             self._init = False
 
@@ -283,7 +296,9 @@ class ScheduleEntity(ToggleEntity):
                     )
                 )
                 await self._action_handler.async_queue_actions(
-                    self.schedule[const.ATTR_TIMESLOTS][self._current_slot]
+                    self.schedule[const.ATTR_TIMESLOTS][self._current_slot],
+                    self.name,
+                    self.entity_id,
                 )
 
         @callback
@@ -510,7 +525,12 @@ class ScheduleEntity(ToggleEntity):
 
         self.async_write_ha_state()
 
-    async def async_service_run_action(self, time=None, skip_conditions=False):
+    async def async_service_run_action(
+        self,
+        time=None,
+        skip_conditions=False,
+        parent_context: Context | None = None,
+    ):
         """Manually trigger the execution of the actions of a timeslot"""
 
         now = dt_util.as_local(dt_util.utcnow())
@@ -543,5 +563,8 @@ class ScheduleEntity(ToggleEntity):
         )
 
         await self._action_handler.async_queue_actions(
-            schedule
+            schedule,
+            self.name,
+            self.entity_id,
+            parent_context=parent_context,
         )

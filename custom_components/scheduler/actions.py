@@ -1,6 +1,7 @@
 import logging
 
 from homeassistant.core import (
+    Context,
     HomeAssistant,
     callback,
     CoreState,
@@ -16,7 +17,8 @@ from homeassistant.const import (
     CONF_CONDITIONS,
     CONF_ATTRIBUTE,
     CONF_STATE,
-    CONF_ACTION
+    CONF_ACTION,
+    ATTR_NAME,
 )
 from homeassistant.components.climate import (
     SERVICE_SET_TEMPERATURE,
@@ -44,6 +46,42 @@ _LOGGER = logging.getLogger(__name__)
 
 ACTION_WAIT = "wait"
 ACTION_WAIT_STATE_CHANGE = "wait_state_change"
+
+
+class ActionExecution:
+    """Context shared by all queues created for one schedule execution."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        schedule_name: str,
+        schedule_entity_id: str,
+        source: str | None,
+        parent_context: Context | None,
+    ):
+        self.hass = hass
+        self.context = Context(
+            parent_id=parent_context.id if parent_context is not None else None
+        )
+        self._event_data = {
+            ATTR_NAME: schedule_name,
+            ATTR_ENTITY_ID: schedule_entity_id,
+        }
+        if source:
+            self._event_data[const.ATTR_SOURCE] = source
+        self._triggered = False
+
+    @callback
+    def async_trigger(self):
+        """Fire the trigger event before the first service call."""
+        if self._triggered:
+            return
+        self._triggered = True
+        self.hass.bus.async_fire(
+            const.EVENT_SCHEDULE_TRIGGERED,
+            self._event_data,
+            context=self.context,
+        )
 
 
 def parse_service_call(data: dict):
@@ -238,7 +276,14 @@ class ActionHandler:
             self.hass, "action_queue_finished", self.async_cleanup_queues
         )
 
-    async def async_queue_actions(self, data: ScheduleEntry, skip_initial_execution = False):
+    async def async_queue_actions(
+        self,
+        data: ScheduleEntry,
+        schedule_name: str,
+        schedule_entity_id: str,
+        skip_initial_execution=False,
+        parent_context: Context | None = None,
+    ):
         """add new actions to queue"""
         await self.async_empty_queue()
 
@@ -246,6 +291,16 @@ class ActionHandler:
         actions = [e for x in data[const.ATTR_ACTIONS] for e in parse_service_call(x)]
         condition_type = data[const.ATTR_CONDITION_TYPE]
         track_conditions = data[const.ATTR_TRACK_CONDITIONS]
+        source = None
+        if const.ATTR_START in data:
+            source = "timeslot at {}".format(data[const.ATTR_START])
+        execution = ActionExecution(
+            self.hass,
+            schedule_name,
+            schedule_entity_id,
+            source,
+            parent_context,
+        )
 
         # create an ActionQueue object per targeted entity (such that the tasks are handled independently)
         for action in actions:
@@ -253,7 +308,12 @@ class ActionHandler:
 
             if entity not in self._queues:
                 self._queues[entity] = ActionQueue(
-                    self.hass, self.id, conditions, condition_type, track_conditions
+                    self.hass,
+                    self.id,
+                    conditions,
+                    condition_type,
+                    track_conditions,
+                    execution,
                 )
 
             self._queues[entity].add_action(action)
@@ -319,6 +379,7 @@ class ActionQueue:
         conditions: list,
         condition_type: str,
         track_conditions: bool,
+        execution: ActionExecution,
     ):
         """create a new action queue"""
         self.hass = hass
@@ -334,6 +395,7 @@ class ActionQueue:
         self.queue_busy = False
         self._track_conditions = track_conditions
         self._wait_for_available = True
+        self._execution = execution
 
         for condition in conditions:
             if (
@@ -610,9 +672,11 @@ class ActionQueue:
             if skip_action:
                 _LOGGER.debug("[{}]: Action has no effect, skipping".format(self.id))
             else:
+                self._execution.async_trigger()
                 await async_call_from_config(
                     self.hass,
                     task,
+                    context=self._execution.context,
                 )
             task_idx = task_idx + 1
 
