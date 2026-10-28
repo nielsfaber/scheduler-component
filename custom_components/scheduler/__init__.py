@@ -201,6 +201,8 @@ async def async_unload_entry(hass, entry):
             *[hass.config_entries.async_forward_entry_unload(entry, PLATFORM)]
         )
     )
+    if not unload_ok:
+        return False
     coordinator = hass.data[const.DOMAIN]["coordinator"]
     await coordinator.async_unload()
     return unload_ok
