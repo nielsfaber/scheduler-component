@@ -427,10 +427,14 @@ class TimerHandler:
 
         # calculate timeslot that will start soonest (or closest in the past)
         remaining = [
-            abs((ts - now).total_seconds()) if ts is not None else now.timestamp()
+            (ts - now).total_seconds() if ts is not None else now.timestamp()
             for ts in timestamps
         ]
-        slot_order = sorted(range(len(remaining)), key=lambda k: remaining[k])
+        # prefer upcoming timeslots over past ones: with an end_date of today, a timeslot that
+        # already passed today is returned in the past and could hide the next timeslot
+        slot_order = sorted(
+            range(len(remaining)), key=lambda k: (remaining[k] < 0, abs(remaining[k]))
+        )
 
         # filter out timeslots that cannot be computed
         for i in range(len(timestamps)):
