@@ -218,6 +218,8 @@ class ScheduleEntity(ToggleEntity):
         if self._state not in [STATE_OFF, AlarmControlPanelState.TRIGGERED]:
             if len(self._next_entries) < 1:
                 self._state = STATE_UNAVAILABLE
+            elif self._timer_handler._next_trigger is None:
+                self._state = const.STATE_COMPLETED
             else:
                 now = dt_util.as_local(dt_util.utcnow())
                 if (self._timer_handler._next_trigger - now).total_seconds() < 0:
