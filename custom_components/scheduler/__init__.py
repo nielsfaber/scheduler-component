@@ -188,8 +188,7 @@ async def async_migrate_entry(hass, config_entry: ConfigEntry):
     _LOGGER.debug("Migrating from version %s", config_entry.version)
 
     if config_entry.version == 1:
-        config_entry.version = 2
-        config_entry.data = {"migrate_entities": True}
+        hass.config_entries.async_update_entry(config_entry, version=2)
 
     return True
 
