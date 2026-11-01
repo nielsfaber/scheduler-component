@@ -1,12 +1,17 @@
 {
   "domain": "scheduler",
   "name": "Scheduler",
-  "codeowners": ["@nielsfaber"],
+  "codeowners": [
+    "@nielsfaber"
+  ],
   "config_flow": true,
-  "dependencies": ["http", "websocket_api"],
+  "dependencies": [
+    "http",
+    "websocket_api"
+  ],
   "documentation": "https://github.com/nielsfaber/scheduler-component",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/nielsfaber/scheduler-component/issues",
   "requirements": [],
-  "version": "v0.0.0"
+  "version": "3.3.9"
 }
