@@ -450,16 +450,21 @@ class ScheduleEntity(ToggleEntity):
     @callback
     def async_get_entity_state(self):
         """fetch schedule data for websocket API"""
-        data = copy.copy(self.schedule)
+        schedule = self.schedule
+        tags = self.tags
+        if schedule is None:
+            schedule = self.coordinator.store.async_get_schedule(self.schedule_id)
+            tags = self.coordinator.async_get_tags_for_schedule(self.schedule_id)
+        data = copy.copy(schedule)
         if not data:
             data = {}
         data.update(
             {
                 "next_entries": self._next_entries,
                 "timestamps": self._timestamps,
-                "name": self.schedule[ATTR_NAME] if self.schedule else "",
+                "name": schedule[ATTR_NAME] if schedule else "",
                 "entity_id": self.entity_id,
-                "tags": self.tags,
+                "tags": tags,
             }
         )
         return data
