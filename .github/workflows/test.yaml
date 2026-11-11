@@ -13,6 +13,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+          cache: pip
+          cache-dependency-path: .github/workflows/test.yaml
       - name: Install test dependencies
         run: pip install pytest-homeassistant
       - name: Run tests
