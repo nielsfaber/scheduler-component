@@ -21,5 +21,13 @@ jobs:
         run: |
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           set -o pipefail
-          pytest 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          pytest 2>&1 | tee /tmp/pytest.log | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report failing tests as annotation
+        if: failure()
+        run: |
+          summary="$(grep -E "^(FAILED|ERROR) " /tmp/pytest.log | head -n 10)"
+          if [ -z "$summary" ]; then summary="$(tail -n 30 /tmp/pytest.log)"; fi
+          echo "::error title=pytest::$(echo "$summary" | tr "
+" "|" | head -c 3500)"
