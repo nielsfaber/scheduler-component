@@ -453,7 +453,14 @@ class SchedulerCoordinator(DataUpdateCoordinator):
 
         workday_entity = self.hass.states.get(const.WORKDAY_ENTITY)
         if not workday_entity:
-            return None
+            # do not abort: install the tracker and the daily poll anyway, so
+            # tracking starts as soon as the workday sensor is added to the
+            # state machine, and schedules are re-evaluated daily at 00:05
+            _LOGGER.warning(
+                "Workday sensor %s not found at initialization, "
+                "it will be tracked once it becomes available",
+                const.WORKDAY_ENTITY,
+            )
 
         @callback
         async def async_workday_state_updated(_event):
