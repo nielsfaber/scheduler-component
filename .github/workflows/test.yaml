@@ -16,4 +16,8 @@ jobs:
       - name: Install test dependencies
         run: pip install pytest-homeassistant
       - name: Run tests
-        run: pytest
+        run: |
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          set -o pipefail
+          pytest 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
