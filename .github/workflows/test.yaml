@@ -27,7 +27,6 @@ jobs:
       - name: Report failing tests as annotation
         if: failure()
         run: |
-          summary="$(grep -E "^(FAILED|ERROR) " /tmp/pytest.log | head -n 10)"
+          summary="$(grep -E '^(FAILED|ERROR) ' /tmp/pytest.log | head -n 10)"
           if [ -z "$summary" ]; then summary="$(tail -n 30 /tmp/pytest.log)"; fi
-          echo "::error title=pytest::$(echo "$summary" | tr "
-" "|" | head -c 3500)"
+          echo "::error title=pytest::$(printf '%s' "$summary" | paste -sd '|' - | head -c 3500)"
