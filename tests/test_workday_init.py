@@ -62,3 +62,8 @@ async def test_workday_tracking_installed_when_sensor_is_missing(hass):
     # state changes must dispatch workday_sensor_updated, which is the
     # signal workday schedules listen to for re-arming their timers
     assert updates
+    # cleanup: cancel the workday tracker and the daily poll timer so that
+    # no timer lingers after the test
+    coordinator._workday_tracker()
+    coordinator._workday_timer()
+    await hass.async_block_till_done()
