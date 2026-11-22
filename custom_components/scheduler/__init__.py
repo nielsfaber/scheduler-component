@@ -12,8 +12,11 @@ from homeassistant.const import (
     EVENT_HOMEASSISTANT_STOP,
     ATTR_ENTITY_ID,
     ATTR_NAME,
+    STATE_ON,
+    STATE_OFF,
 )
 from homeassistant.core import HomeAssistant, asyncio, CoreState, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_registry import (
@@ -223,6 +226,36 @@ async def async_remove_entry(hass, entry):
     del hass.data[const.DOMAIN]
 
 
+async def async_get_workday_statuses(hass: HomeAssistant, dates: list) -> dict:
+    """check which dates are workdays, using the workday.check_date action"""
+    workday_entity = hass.states.get(const.WORKDAY_ENTITY)
+    if (
+        not workday_entity
+        or workday_entity.state not in [STATE_ON, STATE_OFF]
+        or not hass.services.has_service(
+            const.WORKDAY_DOMAIN, const.WORKDAY_SERVICE_CHECK_DATE
+        )
+    ):
+        return {}
+
+    statuses = {}
+    for date in dates:
+        try:
+            response = await hass.services.async_call(
+                const.WORKDAY_DOMAIN,
+                const.WORKDAY_SERVICE_CHECK_DATE,
+                {"check_date": date.isoformat()},
+                target={ATTR_ENTITY_ID: const.WORKDAY_ENTITY},
+                blocking=True,
+                return_response=True,
+            )
+            statuses[date] = bool(response[const.WORKDAY_ENTITY]["workday"])
+        except (HomeAssistantError, vol.Invalid, KeyError, TypeError) as err:
+            _LOGGER.debug("Failed to check workday status of {}: {}".format(date, err))
+            return {}
+    return statuses
+
+
 class SchedulerCoordinator(DataUpdateCoordinator):
     """Define an object to hold scheduler data."""
 
@@ -234,6 +267,8 @@ class SchedulerCoordinator(DataUpdateCoordinator):
         self.state = const.STATE_INIT
         self._workday_tracker = None
         self._workday_timer = None
+        self._workday_cache_lock = asyncio.Lock()
+        self.workday_cache = {}
         self.stopped = False
 
         super().__init__(hass, _LOGGER, name=const.DOMAIN)
@@ -427,6 +462,7 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             """perform daily polling of the workday entity"""
             _LOGGER.debug("Performing daily update of workday sensor")
             await self.async_reset_workday_timer()
+            await self.async_update_workday_cache()
             async_dispatcher_send(self.hass, const.EVENT_WORKDAY_SENSOR_UPDATED)
 
         now = dt_util.as_local(dt_util.utcnow())
@@ -460,12 +496,27 @@ class SchedulerCoordinator(DataUpdateCoordinator):
             """the workday sensor has been updated"""
             _LOGGER.debug("Workday sensor has updated")
             await self.async_reset_workday_timer()
+            await self.async_update_workday_cache()
             async_dispatcher_send(self.hass, const.EVENT_WORKDAY_SENSOR_UPDATED)
 
         self._workday_tracker = async_track_state_change_event(
             self.hass, const.WORKDAY_ENTITY, async_workday_state_updated
         )
         await self.async_reset_workday_timer()
+        await self.async_update_workday_cache()
+        async_dispatcher_send(self.hass, const.EVENT_WORKDAY_SENSOR_UPDATED)
+
+    async def async_update_workday_cache(self):
+        """refresh the workday status of the dates used for calculating the next trigger"""
+        async with self._workday_cache_lock:
+            today = dt_util.as_local(dt_util.utcnow()).date()
+            dates = [
+                today + datetime.timedelta(days=days)
+                for days in range(
+                    -const.WORKDAY_CACHE_DAYS_BEFORE, const.WORKDAY_CACHE_DAYS_AFTER + 1
+                )
+            ]
+            self.workday_cache = await async_get_workday_statuses(self.hass, dates)
 
     async def async_enable_all_schedules(self):
         """enables all schedules"""

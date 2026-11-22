@@ -281,12 +281,26 @@ class TimerHandler:
             )
             await self.async_start_timer()
 
+    def workday_status(self, ts: datetime.datetime):
+        """return the cached workday status of the date of a datetime object, or None if unknown"""
+        coordinator = self.hass.data.get(const.DOMAIN, {}).get("coordinator")
+        if coordinator is None:
+            return None
+        return coordinator.workday_cache.get(ts.date())
+
     def day_in_weekdays(self, ts: datetime.datetime) -> bool:
         """check if the day of a datetime object is in the allowed list of days"""
         day = WEEKDAYS[ts.weekday()]
         workday_sensor = self.hass.states.get(const.WORKDAY_ENTITY)
+        is_workday = self.workday_status(ts)
 
-        if (
+        if is_workday is not None:
+            # workday status of the date is known, including holidays
+            if const.DAY_TYPE_WORKDAY in self._weekdays:
+                return is_workday
+            elif const.DAY_TYPE_WEEKEND in self._weekdays:
+                return not is_workday
+        elif (
             workday_sensor
             and workday_sensor.state in [STATE_ON, STATE_OFF]
             and is_same_day(ts, dt_util.as_local(dt_util.utcnow()))
