@@ -26,6 +26,12 @@ DAY_TYPE_WORKDAY = "workday"
 DAY_TYPE_WEEKEND = "weekend"
 
 WORKDAY_ENTITY = "binary_sensor.workday_sensor"
+WORKDAY_DOMAIN = "workday"
+WORKDAY_SERVICE_CHECK_DATE = "check_date"
+# dates (relative to today) for which the workday status is cached,
+# covering the dates evaluated when calculating the next trigger
+WORKDAY_CACHE_DAYS_BEFORE = 1
+WORKDAY_CACHE_DAYS_AFTER = 17
 
 ATTR_SKIP_CONDITIONS = "skip_conditions"
 ATTR_CONDITION_TYPE = "condition_type"
