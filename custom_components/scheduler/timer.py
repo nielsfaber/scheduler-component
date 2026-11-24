@@ -31,6 +31,11 @@ ATTR_NEXT_RISING = "next_rising"
 ATTR_NEXT_SETTING = "next_setting"
 ATTR_WORKDAYS = "workdays"
 
+# A timeslot that started at most this long before the workday sensor changed state is still
+# executed. Kept below the 1 minute a schedule stays triggered, so an executed timeslot is never
+# caught up again: its timer is restarted (and the workday tracker reinstalled) only after that.
+WORKDAY_CATCH_UP_SECONDS = 30
+
 
 def has_sun(time_str: str):
     return const.OffsetTimePattern.match(time_str)
@@ -234,6 +239,7 @@ class TimerHandler:
             @callback
             async def async_workday_updated():
                 """the workday sensor was updated"""
+                now = dt_util.as_local(dt_util.utcnow())
                 [current_slot, timestamp_end] = self.current_timeslot()
                 [next_slot, timestamp_next] = self.next_timeslot()
                 ts_next = find_closest_from_now([timestamp_end, timestamp_next])
@@ -249,6 +255,8 @@ class TimerHandler:
                         # only reschedule if the difference is at least a minute
                         await self.async_start_timer()
 
+                await self.async_catch_up_timeslot(now)
+
             self._workday_tracker = async_dispatcher_connect(
                 self.hass, const.EVENT_WORKDAY_SENSOR_UPDATED, async_workday_updated
             )
@@ -261,6 +269,46 @@ class TimerHandler:
         if self._workday_tracker:
             self._workday_tracker()
             self._workday_tracker = None
+
+    async def async_catch_up_timeslot(self, now: datetime.datetime):
+        """execute a timeslot that started just before the workday sensor changed state
+
+        The workday sensor changes state at midnight, the same moment a timeslot starting at
+        00:00 is due. When the sensor update is handled before the timer has finished, the
+        timer is recalculated from a moment just after the start of that timeslot, so the
+        timeslot is moved to its next occurrence and skipped for today. A timeslot that only
+        applies under the new day type (e.g. a weekend schedule on a public holiday) is skipped
+        the same way. Such a timeslot is executed now instead.
+        """
+        window_start = now - datetime.timedelta(seconds=WORKDAY_CATCH_UP_SECONDS)
+        for (slot, timeslot) in enumerate(self._timeslots):
+            ts = self.calculate_timestamp(timeslot[const.ATTR_START], window_start)
+            if ts is None or ts > now:
+                # timeslot does not start within the window under the current day type
+                continue
+            if (
+                self._timer
+                and not self._timer_is_endpoint
+                and self._next_slot == slot
+                and self._next_trigger == ts
+            ):
+                # the timer for this timeslot is still set and finishes by itself
+                return
+            _LOGGER.debug(
+                "Timeslot {} of {} started at {} while the workday sensor changed, executing it now".format(
+                    slot, self.id, ts
+                )
+            )
+            if self._timer:
+                self._timer()
+            self._next_slot = slot
+            self._next_trigger = ts
+            self._timer_is_endpoint = False
+            # the point in time has passed, so the timer finishes right away
+            self._timer = async_track_point_in_time(
+                self.hass, self.async_timer_finished, ts
+            )
+            return
 
     async def async_timer_finished(self, _time):
         """the timer is finished"""
