@@ -283,8 +283,9 @@ class TimerHandler:
         window_start = now - datetime.timedelta(seconds=WORKDAY_CATCH_UP_SECONDS)
         for (slot, timeslot) in enumerate(self._timeslots):
             ts = self.calculate_timestamp(timeslot[const.ATTR_START], window_start)
-            if ts is None or ts > now:
+            if ts is None or ts <= window_start or ts > now:
                 # timeslot does not start within the window under the current day type
+                # (with an end date, the search can rewind to before the window)
                 continue
             if (
                 self._timer

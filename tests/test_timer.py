@@ -167,3 +167,19 @@ async def test_later_workday_update_does_not_rerun_a_slot(harness):
 
     assert h.live_timer[1] == at(MONDAY, 13)
     assert h.handler._next_slot == 1
+
+
+@pytest.mark.asyncio
+async def test_slot_before_the_window_is_not_caught_up(harness):
+    """With an end date of today, the slot search rewinds to today's 00:00; the 00:05 poll must not
+    run that slot again."""
+    h = harness([const.DAY_TYPE_WORKDAY], ["00:00:00", "13:00:00"])
+    h.handler._end_date = MONDAY.date().isoformat()
+    h.now = at(MONDAY, 0, 1)
+    await h.handler.async_start_timer()
+    assert h.live_timer[1] == at(MONDAY, 13)
+
+    await h.workday_changes(at(MONDAY, 0, 5), STATE_ON)
+
+    assert h.live_timer[1] == at(MONDAY, 13)
+    assert h.handler._next_slot == 1
